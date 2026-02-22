@@ -1,0 +1,12 @@
+credenciales.json
+.streamlit/
+__pycache__/
+
+# 1. Primero permitimos que Git entre a la carpeta
+!plantillas/
+
+# 2. Luego ignoramos todos los PDFs del proyecto
+*.pdf
+
+# 3. Pero le decimos que NO ignore los PDFs que estén dentro de plantillas
+!plantillas/*.pdf
