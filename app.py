@@ -56,6 +56,11 @@ with tab2:
                 # Extraemos datos usando el ocr_processor limpio
                 datos_extraidos = extraer_datos_memoria(bytes_data, is_pdf)
 
+                # 2. CUADRO DE DEPURACIÓN (Aparecerá justo debajo del cargador)
+            with st.expander("🔍 DEBUG: Ver texto que el sistema leyó"):
+                st.code(datos_extraidos.get(
+                    "texto_bruto", "No se capturó texto"))
+
                 if datos_extraidos:
                     # LÓGICA DE BÚSQUEDA EXTERNA (INYECCIÓN)
                     rfc_detectado = datos_extraidos.get("RFC:", "")

@@ -6,10 +6,10 @@ import cv2
 
 
 def procesar_texto_a_diccionario(texto):
-    # Unificamos el texto en una sola línea para evitar que los saltos de página rompan la búsqueda
+    # Unificamos el texto en una sola línea para que las Regex no fallen con saltos de línea
     texto = " ".join(texto.split())
 
-    # Patrones ajustados a tu lista directa de la constancia
+    # Patrones actualizados con las etiquetas que me pasaste de la constancia
     patterns = {
         "RFC:": r"RFC:\s*([A-Z0-9]{12,13})",
         "CURP:": r"CURP:\s*([A-Z0-9]{18})",
@@ -29,7 +29,6 @@ def procesar_texto_a_diccionario(texto):
 
     resultados = {}
     for campo, ptr in patterns.items():
-        # Buscamos ignorando mayúsculas/minúsculas para mayor seguridad
         match = re.search(ptr, texto, re.IGNORECASE)
         resultados[campo] = match.group(1).strip() if match else ""
     return resultados
@@ -41,21 +40,21 @@ def extraer_datos_memoria(file_bytes, is_pdf=True):
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
-                # El modo "blocks" ayuda a mantener juntas las palabras de una misma etiqueta
+                # Usamos "text" para capturar el flujo digital
                 texto_extraido += pagina.get_text("text") + " "
             doc.close()
         except Exception as e:
             print(f"Error digital: {e}")
 
-    # Si es imagen o el PDF digital no soltó texto, usamos OCR
+    # Si el PDF no soltó texto (es imagen) o es un archivo de imagen directo
     if len(texto_extraido.strip()) < 50:
         try:
             nparr = np.frombuffer(file_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if is_pdf and img is None:
                 doc = fitz.open(stream=file_bytes, filetype="pdf")
-                pix = doc[0].get_pixmap(
-                    matrix=fitz.Matrix(3, 3))  # Alta resolución
+                # Alta resolución para OCR
+                pix = doc[0].get_pixmap(matrix=fitz.Matrix(3, 3))
                 img_data = np.frombuffer(
                     pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
                 img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
@@ -63,9 +62,19 @@ def extraer_datos_memoria(file_bytes, is_pdf=True):
 
             if img is not None:
                 reader = easyocr.Reader(['es'])
-                resultados = reader.readtext(img, detail=0)
-                texto_extraido = " ".join(resultados)
+                resultados_ocr = reader.readtext(img, detail=0)
+                texto_extraido = " ".join(resultados_ocr)
         except Exception as e:
             print(f"Error OCR: {e}")
 
-    return procesar_texto_a_diccionario(texto_extraido.upper())
+    # --- AQUÍ ESTÁ LA UNIÓN DE LO FALTANTE ---
+    # 1. Limpiamos espacios y pasamos a mayúsculas
+    texto_limpio = " ".join(texto_extraido.split()).upper()
+
+    # 2. Obtenemos el diccionario con las Regex actualizadas
+    resultados_finales = procesar_texto_a_diccionario(texto_limpio)
+
+    # 3. Guardamos el texto bruto para poder verlo en el Debug de Streamlit
+    resultados_finales["texto_bruto"] = texto_limpio
+
+    return resultados_finales
