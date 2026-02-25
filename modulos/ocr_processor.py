@@ -1,36 +1,58 @@
 import re
-import fitz  # PyMuPDF
-import easyocr
+import fitz
 import numpy as np
-import cv2
 
 
 def procesar_texto_a_diccionario(texto):
-    # Unificamos el texto en una sola línea para que las Regex no fallen con saltos de línea
-    texto = " ".join(texto.split())
+    # Limpieza total y estandarización
+    texto = " ".join(texto.split()).upper()
 
-    # Patrones actualizados con las etiquetas que me pasaste de la constancia
-    patterns = {
-        "RFC:": r"RFC:\s*([A-Z0-9]{12,13})",
-        "CURP:": r"CURP:\s*([A-Z0-9]{18})",
-        "Nombre (s):": r"NOMBRE\s*\(S\):\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*PRIMER|Primer|$)",
-        "Primer Apellido:": r"PRIMER APELLIDO:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*SEGUNDO|Segundo|$)",
-        "Segundo Apellido:": r"SEGUNDO APELLIDO:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*FECHA|Fecha|$)",
-        "Código Postal:": r"CÓDIGO POSTAL:\s*(\d{5})",
-        "Tipo de Vialidad:": r"TIPO DE VIALIDAD:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*NOMBRE|Nombre|$)",
-        "Nombre de Vialidad:": r"NOMBRE DE VIALIDAD:\s*([A-Z\s0-9ÁÉÍÓÚÑ]+?)(?=\s*NÚMERO|Número|$)",
-        "Número Exterior:": r"NÚMERO EXTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NÚMERO|Número|$)",
-        "Número Interior:": r"NÚMERO INTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NOMBRE|Nombre|$)",
-        "Nombre de Colonia:": r"NOMBRE DE\s*(?:LA)?\s*COLONIA:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*NOMBRE|Nombre|$)",
-        "Nombre de la Localidad:": r"NOMBRE DE LA LOCALIDAD:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*NOMBRE|Nombre|$)",
-        "Nombre de Municipio o Demarcación Territorial:": r"NOMBRE DEL? MUNICIPIO O DEMARCACIÓN TERRITORIAL:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*NOMBRE|Nombre|$)",
-        "Nombre de la Entidad Federativa:": r"NOMBRE DE LA ENTIDAD FEDERATIVA:\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*ENTRE|Entre|$)"
+    # 1. Extraer todos los candidatos posibles usando patrones universales
+    rfcs = re.findall(r"\b[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
+    curps = re.findall(
+        r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
+    codigos_postales = re.findall(r"\b\d{5}\b", texto)
+
+    # 2. Función auxiliar para buscar valores después de una etiqueta
+    def buscar_valor(etiqueta, patron_valor, texto_fuente):
+        # Busca la etiqueta y captura lo que sigue hasta encontrar otra etiqueta o mucho espacio
+        match = re.search(
+            rf"{etiqueta}[:\s]*(.*?)(?=RFC:|CURP:|NOMBRE|PRIMER|SEGUNDO|FECHA|ESTATUS|CÓDIGO|TIPO|NÚMERO|$)", texto_fuente, re.IGNORECASE)
+        if match:
+            valor = match.group(1).strip()
+            # Si el valor capturado es solo ruido o etiquetas pegadas, intentamos limpiar
+            return valor
+        return ""
+
+    # 3. Mapeo inteligente
+    resultados = {
+        "RFC:": rfcs[0] if rfcs else "",
+        "CURP:": curps[0] if curps else "",
+        "Nombre (s):": buscar_valor("NOMBRE \(S\)", r".*", texto),
+        "Primer Apellido:": buscar_valor("PRIMER APELLIDO", r".*", texto),
+        "Segundo Apellido:": buscar_valor("SEGUNDO APELLIDO", r".*", texto),
+        "Código Postal:": codigos_postales[0] if codigos_postales else "",
+        "Tipo de Vialidad:": buscar_valor("TIPO DE VIALIDAD", r".*", texto),
+        "Nombre de Vialidad:": buscar_valor("NOMBRE DE VIALIDAD", r".*", texto),
+        "Número Exterior:": buscar_valor("NÚMERO EXTERIOR", r".*", texto),
+        "Número Interior:": buscar_valor("NÚMERO INTERIOR", r".*", texto),
+        "Nombre de Colonia:": buscar_valor("NOMBRE DE (?:LA )?COLONIA", r".*", texto),
+        "Nombre de la Localidad:": buscar_valor("NOMBRE DE LA LOCALIDAD", r".*", texto),
+        "Nombre de Municipio o Demarcación Territorial:": buscar_valor("MUNICIPIO O DEMARCACIÓN TERRITORIAL", r".*", texto),
+        "Nombre de la Entidad Federativa:": buscar_valor("ENTIDAD FEDERATIVA", r".*", texto)
     }
 
-    resultados = {}
-    for campo, ptr in patterns.items():
-        match = re.search(ptr, texto, re.IGNORECASE)
-        resultados[campo] = match.group(1).strip() if match else ""
+    # Lógica de respaldo: Si el nombre sigue vacío por el formato "no lineal",
+    # buscamos el bloque de texto que usualmente sigue a los RFCs/CURPs
+    if not resultados["Nombre (s):"] and len(rfcs) > 0:
+        # Buscamos palabras grandes después del segundo o tercer RFC detectado
+        palabras = texto.split()
+        for i, word in enumerate(palabras):
+            if word == rfcs[0] and i + 2 < len(palabras):
+                # Probablemente lo que sigue es el nombre
+                resultados["Nombre (s):"] = palabras[i+1]
+                break
+
     return resultados
 
 
@@ -40,41 +62,14 @@ def extraer_datos_memoria(file_bytes, is_pdf=True):
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
-                # Usamos "text" para capturar el flujo digital
-                texto_extraido += pagina.get_text("text") + " "
+                # Cambiamos a "words" para forzar un orden de lectura de izquierda a derecha y arriba abajo
+                words = pagina.get_text("words")
+                texto_extraido += " ".join([w[4] for w in words]) + " "
             doc.close()
         except Exception as e:
-            print(f"Error digital: {e}")
+            print(f"Error: {e}")
 
-    # Si el PDF no soltó texto (es imagen) o es un archivo de imagen directo
-    if len(texto_extraido.strip()) < 50:
-        try:
-            nparr = np.frombuffer(file_bytes, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if is_pdf and img is None:
-                doc = fitz.open(stream=file_bytes, filetype="pdf")
-                # Alta resolución para OCR
-                pix = doc[0].get_pixmap(matrix=fitz.Matrix(3, 3))
-                img_data = np.frombuffer(
-                    pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-                img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
-                doc.close()
-
-            if img is not None:
-                reader = easyocr.Reader(['es'])
-                resultados_ocr = reader.readtext(img, detail=0)
-                texto_extraido = " ".join(resultados_ocr)
-        except Exception as e:
-            print(f"Error OCR: {e}")
-
-    # --- AQUÍ ESTÁ LA UNIÓN DE LO FALTANTE ---
-    # 1. Limpiamos espacios y pasamos a mayúsculas
     texto_limpio = " ".join(texto_extraido.split()).upper()
-
-    # 2. Obtenemos el diccionario con las Regex actualizadas
-    resultados_finales = procesar_texto_a_diccionario(texto_limpio)
-
-    # 3. Guardamos el texto bruto para poder verlo en el Debug de Streamlit
-    resultados_finales["texto_bruto"] = texto_limpio
-
-    return resultados_finales
+    resultados = procesar_texto_a_diccionario(texto_limpio)
+    resultados["texto_bruto"] = texto_limpio
+    return resultados
