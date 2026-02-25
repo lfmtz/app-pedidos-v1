@@ -6,7 +6,9 @@ import cv2
 
 
 def procesar_texto_a_diccionario(texto):
-    """Analiza el texto y extrae los campos usando Regex."""
+    # Paso 1: Limpieza agresiva del texto (quitar saltos de línea y espacios dobles)
+    texto = " ".join(texto.split())
+
     patterns = {
         "Nombre (s):": r"(?:NOMBRE\s*\(S\):|Nombre\(s\))\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*PRIMER|Primer|$)",
         "Primer Apellido:": r"(?:PRIMER APELLIDO:|Primer Apellido)\s*([A-Z\sÁÉÍÓÚÑ]+?)(?=\s*SEGUNDO|Segundo|$)",
@@ -27,44 +29,51 @@ def procesar_texto_a_diccionario(texto):
     resultados = {}
     for campo, ptr in patterns.items():
         match = re.search(ptr, texto, re.IGNORECASE)
-        resultados[campo] = match.group(1).strip() if match else ""
+        if match:
+            resultados[campo] = match.group(1).strip()
+        else:
+            resultados[campo] = ""
     return resultados
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
-    """Lee PDF digital o aplica OCR si es imagen/escaneado."""
     texto_extraido = ""
     img = None
 
-    # 1. Intentar extracción de texto digital (PDF nativo)
     if is_pdf:
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
-                texto_extraido += pagina.get_text()
+                # Usamos el método "text" que es más fiable para PDFs digitales
+                texto_extraido += pagina.get_text("text") + " "
+            doc.close()
+        except Exception as e:
+            print(f"Error digital: {e}")
 
-            # Si el PDF no tiene texto (es una imagen), lo preparamos para OCR
-            if len(texto_extraido.strip()) < 50:
-                pagina = doc[0]
-                pix = pagina.get_pixmap(matrix=fitz.Matrix(2, 2))
+    # Si no extrajo nada digitalmente, forzamos OCR
+    if len(texto_extraido.strip()) < 50:
+        try:
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            if is_pdf and img is None:
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                # Aumentamos la resolución para que el OCR no falle (Matrix 3x3)
+                pix = doc[0].get_pixmap(matrix=fitz.Matrix(3, 3))
                 img_data = np.frombuffer(
                     pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
                 img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
-            doc.close()
-        except Exception as e:
-            print(f"Error en lectura digital: {e}")
-    else:
-        # Si es una imagen (JPG/PNG)
-        nparr = np.frombuffer(file_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                doc.close()
 
-    # 2. Si no hay texto digital, aplicar OCR
-    if len(texto_extraido.strip()) < 50 and img is not None:
-        try:
-            reader = easyocr.Reader(['es'])
-            resultados = reader.readtext(img, detail=0)
-            texto_extraido = " ".join(resultados)
+            if img is not None:
+                reader = easyocr.Reader(['es'])
+                resultados = reader.readtext(img, detail=0)
+                texto_extraido = " ".join(resultados)
         except Exception as e:
-            print(f"Error en OCR: {e}")
+            print(f"Error OCR: {e}")
+
+    # DEPURACIÓN: Esto imprimirá en la consola lo que el código está "viendo"
+    print("--- TEXTO DETECTADO ---")
+    print(texto_extraido[:500])
 
     return procesar_texto_a_diccionario(texto_extraido.upper())
