@@ -2,6 +2,7 @@ import re
 import fitz
 import easyocr
 import numpy as np
+import cv2
 
 
 def procesar_texto_a_diccionario(texto):
@@ -33,14 +34,14 @@ def procesar_texto_a_diccionario(texto):
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
     """
-    Versión para Streamlit que recibe bytes en lugar de una ruta de archivo.
+    Versión para Streamlit que recibe bytes y asegura compatibilidad 
+    de imagen para EasyOCR en la nube.
     """
     texto_extraido = ""
 
     # 1. Extracción de texto digital (si es PDF)
     if is_pdf:
         try:
-            # fitz.open(stream=...) permite leer el archivo que el usuario sube a la web
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
                 texto_extraido += pagina.get_text()
@@ -53,10 +54,25 @@ def extraer_datos_memoria(file_bytes, is_pdf=True):
         # Inicializamos el lector en español
         reader = easyocr.Reader(['es'])
 
-        # EasyOCR puede procesar los bytes directamente
-        # detail=0 devuelve solo el texto limpio
-        resultados = reader.readtext(file_bytes, detail=0)
-        texto_extraido = " ".join(resultados)
+        try:
+            # --- SOLUCIÓN AL ERROR CV2 ---
+            # Convertimos los bytes a un array de numpy
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            # Decodificamos el array a una imagen que OpenCV entienda
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Procesamos el texto final (forzado a mayúsculas) con el diccionario de Regex
+            if img is not None:
+                # Si la decodificación funcionó, pasamos la imagen procesada
+                resultados = reader.readtext(img, detail=0)
+            else:
+                # Si falla (por ser un PDF complejo), intentamos pasar los bytes
+                # pero es más probable que el error cv2 persista sin packages.txt
+                resultados = reader.readtext(file_bytes, detail=0)
+
+            texto_extraido = " ".join(resultados)
+        except Exception as e:
+            print(f"Error en OCR: {e}")
+            texto_extraido = ""
+
+    # Procesamos el texto final (forzado a mayúsculas)
     return procesar_texto_a_diccionario(texto_extraido.upper())
