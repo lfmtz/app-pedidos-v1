@@ -6,54 +6,52 @@ import easyocr
 
 
 def procesar_texto_a_diccionario(texto):
-    # Limpieza: Unificamos a una sola línea y quitamos espacios dobles
+    # Limpieza total para facilitar la búsqueda
     texto = " ".join(texto.split()).upper()
 
-    # --- EXTRACCIÓN POR PATRONES ESTRUCTURALES ---
-    # RFC: 12 o 13 caracteres
-    rfc_match = re.search(r"\b([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})\b", texto)
+    # 1. BÚSQUEDA POR ESTRUCTURA (Para cualquier formato de constancia)
+    rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
+    curps = re.findall(
+        r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
+    codigos_postales = re.findall(r"\b\d{5}\b", texto)
 
-    # CURP: 18 caracteres (Patrón mejorado para ser más flexible)
-    curp_match = re.search(
-        r"([A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d)", texto)
+    # 2. BÚSQUEDA DE NOMBRE (Busca entre etiquetas clave)
+    def extraer_nombre(texto_fuente):
+        match = re.search(
+            r"(?:CONTRIBUYENTE|SOCIAL)[:\s]+([A-Z\sÑÁÉÍÓÚ]{10,60})(?=\s+RFC|IDCIF|CURP|$)", texto_fuente)
+        if match:
+            nombre = match.group(1).strip()
+            basura = ["REGISTRO", "FEDERAL",
+                      "CONTRIBUYENTES", "DOMICILIO", "DATOS"]
+            palabras = [p for p in nombre.split(
+            ) if p not in basura and len(p) > 1]
+            return palabras
+        return []
 
-    # Código Postal: 5 números
-    cp_match = re.search(r"\b(\d{5})\b", texto)
+    partes_nombre = extraer_nombre(texto)
 
-    # --- EXTRACCIÓN DE NOMBRE (Martha Vianey Delgado Cuevas) ---
-    nombre_completo = ""
-    # Buscamos el bloque de nombre que aparece después de la CURP o cerca de la fecha
-    match_n = re.search(
-        r"MDFLVRA5\s+([A-Z\sÑÁÉÍÓÚ]+?)\s+\d{2}\s+DE\s+AGOSTO", texto)
-    if not match_n:
-        match_n = re.search(r"SOCIAL[:\s]+([A-Z\sÑÁÉÍÓÚ]+?)\s+IDCIF", texto)
+    # 3. BÚSQUEDA DE DIRECCIÓN (Lógica de "frenos" entre etiquetas)
+    def buscar_entre(inicio, fin, fuente):
+        patron = rf"{inicio}[:\s]*([A-Z0-9\sÑÁÉÍÓÚ\.\-\/]+?)(?=\s+{fin}|PÁGINA|$)"
+        m = re.search(patron, fuente)
+        return m.group(1).strip() if m else ""
 
-    if match_n:
-        nombre_completo = match_n.group(1).strip()
-
-    partes = [p for p in nombre_completo.split() if p not in [
-        "REGISTRO", "FEDERAL", "CONTRIBUYENTES"]]
-
-    # Mapeo final manteniendo tus nombres de campos
-    resultados = {
-        "Nombre (s):": " ".join(partes[:2]) if len(partes) >= 2 else (partes[0] if partes else ""),
-        "Primer Apellido:": partes[-2] if len(partes) >= 3 else (partes[1] if len(partes) == 2 else ""),
-        "Segundo Apellido:": partes[-1] if len(partes) >= 4 else "",
-        "RFC:": rfc_match.group(1) if rfc_match else "",
-        # <--- Aquí ya lo capturará
-        "CURP:": curp_match.group(1) if curp_match else "",
-        "Código Postal:": cp_match.group(1) if cp_match else "",
-        "Nombre de Vialidad:": "ARCOIRIS" if "ARCOIRIS" in texto else "",
-        "Tipo de Vialidad:": "BOULEVARD" if "BOULEVARD" in texto else "",
-        "Nombre de la Localidad:": "IXTAPALUCA" if "IXTAPALUCA" in texto else "",
-        "Nombre de la Entidad Federativa:": "MEXICO" if "MEXICO" in texto else "",
-        "Nombre de la Colonia:": "",
-        "Número Exterior:": "10 C" if "10 C" in texto else "",
-        "Número Interior:": "44" if " 44 " in texto else "",
-        "Nombre del Municipio o Demarcación Territorial:": "IXTAPALUCA" if "IXTAPALUCA" in texto else ""
+    return {
+        "RFC:": rfcs[0] if rfcs else "",
+        "CURP:": curps[0] if curps else "",
+        "Nombre (s):": " ".join(partes_nombre[:2]) if len(partes_nombre) >= 2 else (partes_nombre[0] if partes_nombre else ""),
+        "Primer Apellido:": partes_nombre[-2] if len(partes_nombre) >= 3 else (partes_nombre[1] if len(partes_nombre) == 2 else ""),
+        "Segundo Apellido:": partes_nombre[-1] if len(partes_nombre) >= 4 else "",
+        "Código Postal:": codigos_postales[0] if codigos_postales else "",
+        "Tipo de Vialidad:": buscar_entre("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
+        "Nombre de Vialidad:": buscar_entre("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
+        "Número Exterior:": buscar_entre("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
+        "Número Interior:": buscar_entre("NÚMERO INTERIOR", "NOMBRE DE (?:LA )?COLONIA", texto),
+        "Nombre de la Colonia:": buscar_entre("NOMBRE DE (?:LA )?COLONIA", "NOMBRE DE (?:LA )?LOCALIDAD", texto),
+        "Nombre de la Localidad:": buscar_entre("NOMBRE DE (?:LA )?LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
+        "Nombre del Municipio o Demarcación Territorial:": buscar_entre("TERRITORIAL", "NOMBRE DE (?:LA )?ENTIDAD", texto),
+        "Nombre de la Entidad Federativa:": buscar_entre("ENTIDAD FEDERATIVA", "ENTRE CALLE", texto)
     }
-
-    return resultados
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
@@ -62,19 +60,21 @@ def extraer_datos_memoria(file_bytes, is_pdf=True):
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
-                # Usamos el modo "text" para mantener el flujo que tenías
                 texto_extraido += pagina.get_text() + " "
             doc.close()
         except Exception as e:
             print(f"Error PDF: {e}")
 
-    # Tu lógica original de EasyOCR si el texto es corto
+    # OCR de respaldo si el PDF es imagen o viene vacío
     if len(texto_extraido) < 50:
-        reader = easyocr.Reader(['es'])
-        nparr = np.frombuffer(file_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        resultados_ocr = reader.readtext(img, detail=0)
-        texto_extraido = " ".join(resultados_ocr)
+        try:
+            reader = easyocr.Reader(['es'])
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            resultados_ocr = reader.readtext(img, detail=0)
+            texto_extraido = " ".join(resultados_ocr)
+        except Exception as e:
+            print(f"Error OCR: {e}")
 
     texto_final = texto_extraido.upper()
     datos = procesar_texto_a_diccionario(texto_final)
