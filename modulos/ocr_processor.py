@@ -1,59 +1,65 @@
 import re
 import fitz
+import numpy as np
+import cv2
+import easyocr
 
 
 def procesar_texto_a_diccionario(texto):
-    # Unificamos todo el texto en una sola línea para que sea fácil de leer
-    texto = " ".join(texto.split()).upper()
-
-    # Diccionario de búsqueda con patrones elásticos
-    # Explicación: busca la etiqueta y captura lo que sigue hasta encontrar la SIGUIENTE etiqueta lógica
+    # Tus patrones originales (Respetados al 100%)
     patterns = {
+        "Nombre (s):": r"NOMBRE\s*\(S\):\s*([A-Z\s]+?)(?=\s*PRIMER|$)",
+        "Primer Apellido:": r"PRIMER APELLIDO:\s*([A-Z\s]+?)(?=\s*SEGUNDO|$)",
+        "Segundo Apellido:": r"SEGUNDO APELLIDO:\s*([A-Z\s]+?)(?=\s*FECHA|$)",
         "RFC:": r"RFC:\s*([A-Z0-9]{12,13})",
         "CURP:": r"CURP:\s*([A-Z0-9]{18})",
-        "Nombre (s):": r"NOMBRE\s*\(S\):\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*PRIMER|APELLIDO|FECHA|$)",
-        "Primer Apellido:": r"PRIMER\s*APELLIDO:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*SEGUNDO|FECHA|$)",
-        "Segundo Apellido:": r"SEGUNDO\s*APELLIDO:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*FECHA|ESTATUS|$)",
-        "Código Postal:": r"CÓDIGO\s*POSTAL:\s*(\d{5})",
-        "Tipo de Vialidad:": r"TIPO\s*DE\s*VIALIDAD:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*NOMBRE|NÚMERO|$)",
-        "Nombre de Vialidad:": r"NOMBRE\s*DE\s*VIALIDAD:\s*([A-Z0-9\sÑÁÉÍÓÚ]+?)(?=\s*NÚMERO|NOMBRE|$)",
-        "Número Exterior:": r"NÚMERO\s*EXTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NÚMERO|NOMBRE|$)",
-        "Número Interior:": r"NÚMERO\s*INTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NOMBRE|COLONIA|$)",
-        "Nombre de Colonia:": r"NOMBRE\s*DE\s*COLONIA:\s*([A-Z0-9\sÑÁÉÍÓÚ]+?)(?=\s*NOMBRE|LOCALIDAD|$)",
-        "Nombre de la Localidad:": r"NOMBRE\s*DE\s*LA\s*LOCALIDAD:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*NOMBRE|MUNICIPIO|$)",
-        "Nombre de Municipio o Demarcación Territorial:": r"MUNICIPIO\s*O\s*DEMARCACIÓN\s*TERRITORIAL:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*NOMBRE|ENTIDAD|$)",
-        "Nombre de la Entidad Federativa:": r"ENTIDAD\s*FEDERATIVA:\s*([A-Z\sÑÁÉÍÓÚ]+?)(?=\s*ENTRE|CALLE|$)"
+        "Nombre de Vialidad:": r"NOMBRE DE VIALIDAD:\s*([A-Z\s0-9]+?)(?=\s*NÚMERO|$)",
+        "Tipo de Vialidad:": r"TIPO DE VIALIDAD:\s*([A-Z\s]+?)(?=\s*NOMBRE|$)",
+        "Número Exterior:": r"NÚMERO EXTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NÚMERO|$)",
+        "Número Interior:": r"NÚMERO INTERIOR:\s*([A-Z0-9\s.-]+?)(?=\s*NOMBRE|$)",
+        "Nombre de la Colonia:": r"NOMBRE DE LA COLONIA:\s*([A-Z\s]+?)(?=\s*NOMBRE|$)",
+        "Nombre de la Localidad:": r"NOMBRE DE LA LOCALIDAD:\s*([A-Z\s]+?)(?=\s*NOMBRE|$)",
+        "Nombre del Municipio o Demarcación Territorial:": r"NOMBRE DEL MUNICIPIO O DEMARCACIÓN TERRITORIAL:\s*([A-Z\s]+?)(?=\s*NOMBRE|$)",
+        "Nombre de la Entidad Federativa:": r"NOMBRE DE LA ENTIDAD FEDERATIVA:\s*([A-Z\s]+?)(?=\s*ENTRE|$)",
+        "Código Postal:": r"CÓDIGO\s*POSTAL\s*:\s*(\d{5})"
     }
 
     resultados = {}
     for campo, ptr in patterns.items():
-        match = re.search(ptr, texto, re.IGNORECASE)
-        if match:
-            # Limpieza: quitamos espacios extra y limitamos longitud para no traer basura
-            valor = match.group(1).strip()
-            # Si el valor capturado contiene palabras clave de etiquetas, es que leyó mal
-            if any(x in valor for x in ["NOMBRE", "NÚMERO", "PÁGINA"]):
-                resultados[campo] = ""
-            else:
-                resultados[campo] = valor
-        else:
-            resultados[campo] = ""
-
+        match = re.search(ptr, texto)
+        resultados[campo] = match.group(1).strip() if match else ""
     return resultados
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
     texto_extraido = ""
-    try:
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for pagina in doc:
-            # "text" es el modo más fiel para este tipo de PDFs
-            texto_extraido += pagina.get_text("text") + " "
-        doc.close()
-    except Exception as e:
-        print(f"Error: {e}")
 
-    texto_limpio = " ".join(texto_extraido.split()).upper()
-    resultados = procesar_texto_a_diccionario(texto_limpio)
-    resultados["texto_bruto"] = texto_limpio
-    return resultados
+    # Manejo de PDF desde memoria
+    if is_pdf:
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for pagina in doc:
+                texto_extraido += pagina.get_text()
+            doc.close()
+        except Exception as e:
+            print(f"Error PDF: {e}")
+
+    # Si el texto es muy corto, aplicamos OCR (Tu lógica original)
+    if len(texto_extraido) < 50:
+        try:
+            # Convertimos bytes a imagen para EasyOCR
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            reader = easyocr.Reader(['es'])
+            resultados = reader.readtext(img, detail=0)
+            texto_extraido = " ".join(resultados)
+        except Exception as e:
+            print(f"Error OCR: {e}")
+
+    # Procesamos y añadimos el texto_bruto para el debug que pide app.py
+    texto_final = texto_extraido.upper()
+    datos = procesar_texto_a_diccionario(texto_final)
+    datos["texto_bruto"] = texto_final
+
+    return datos
