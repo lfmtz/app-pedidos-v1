@@ -3,63 +3,70 @@ import fitz
 
 
 def procesar_texto_a_diccionario(texto):
-    # Limpiamos el texto para que sea una sola línea plana
+    # Unificamos todo el texto en una sola línea limpia
     texto = " ".join(texto.split()).upper()
 
-    # 1. IDENTIFICADORES SEGUROS (Mantenemos la lógica que ya te funcionó)
+    # --- 1. IDENTIFICADORES (PATRONES FIJOS) ---
     rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
     curps = re.findall(
         r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
     cp = re.findall(r"\b\d{5}\b", texto)
 
-    # 2. CORRECCIÓN DE NOMBRE (Enfoque en Martha Vianey Delgado Cuevas)
-    # Buscamos el bloque que está entre 'DENOMINACIÓN O RAZÓN SOCIAL:' y 'IDCIF'
+    # --- 2. EXTRACCIÓN DEL NOMBRE (SIN ETIQUETAS BASURA) ---
     nombre_completo = ""
-    match_nombre = re.search(
-        r"SOCIAL[:\s]+([A-Z\sÑÁÉÍÓÚ]+?)(?=\s+IDCIF|RFC:|$)", texto)
+    # El nombre real está entre 'RAZÓN SOCIAL:' e 'IDCIF' o entre 'CONTRIBUYENTE:' y 'RFC:'
+    m1 = re.search(r"SOCIAL[:\s]+([A-Z\sÑÁÉÍÓÚ]+?)(?=\s+IDCIF|RFC:|$)", texto)
+    m2 = re.search(r"CONTRIBUYENTE[:\s]+([A-Z\sÑÁÉÍÓÚ]+?)(?=\s+RFC:|$)", texto)
 
-    if match_nombre:
-        nombre_completo = match_nombre.group(1).strip()
+    cand = m1.group(1).strip() if m1 else (m2.group(1).strip() if m2 else "")
 
-    # Si el nombre capturó "REGISTRO", lo buscamos en el bloque de abajo (Datos de Identificación)
-    if "REGISTRO" in nombre_completo or len(nombre_completo) < 3:
-        match_n2 = re.search(
-            r"CONTRIBUYENTE[:\s]+([A-Z\sÑÁÉÍÓÚ]+?)(?=\s+RFC:|$)", texto)
-        if match_n2:
-            nombre_completo = match_n2.group(1).strip()
+    # Limpiamos palabras que no son nombres
+    basura = ["REGISTRO", "FEDERAL", "CONTRIBUYENTES",
+              "DATOS", "IDENTIFICACIÓN", "DOMICILIO"]
+    palabras = [p for p in cand.split() if p not in basura and len(p) > 1]
 
-    # Dividir el nombre con seguridad
-    partes = [p for p in nombre_completo.split() if p not in [
-        "REGISTRO", "FEDERAL", "CONTRIBUYENTES"]]
+    # Martha Vianey Delgado Cuevas -> N: Martha Vianey, P: Delgado, S: Cuevas
+    res_n = " ".join(palabras[:2]) if len(
+        palabras) >= 2 else (palabras[0] if palabras else "")
+    res_p = palabras[-2] if len(palabras) >= 3 else (palabras[1]
+                                                     if len(palabras) == 2 else "")
+    res_m = palabras[-1] if len(palabras) >= 4 else ""
 
-    res_nombre = " ".join(partes[:2]) if len(
-        partes) >= 2 else (partes[0] if partes else "")
-    res_apellido_p = partes[-2] if len(partes) >= 3 else (
-        partes[1] if len(partes) == 2 else "")
-    res_apellido_m = partes[-1] if len(partes) >= 4 else ""
-
-    # 3. DIRECCIÓN CON "FRENOS" PARA EVITAR PÁRRAFOS LARGOS
-    def limpiar_campo(inicio, fin, texto_fuente):
-        # El patrón busca el texto y se detiene en seco al encontrar la palabra 'fin'
-        patron = rf"{inicio}[:\s]*([A-Z0-9\sÑÁÉÍÓÚ\.\-\/]+?)(?=\s+{fin}|\s+PÁGINA|$)"
-        m = re.search(patron, texto_fuente)
+    # --- 3. DIRECCIÓN CON FRENOS DE SEGURIDAD ---
+    def extraer(inicio, fin, fuente):
+        pattern = rf"{inicio}[:\s]*([A-Z0-9\sÑÁÉÍÓÚ\.\-\/]+?)(?=\s+{fin}|\s+PÁGINA|$)"
+        m = re.search(pattern, fuente)
         return m.group(1).strip() if m else ""
 
-    resultados = {
+    return {
         "RFC:": rfcs[0] if rfcs else "",
         "CURP:": curps[0] if curps else "",
-        "Nombre (s):": res_nombre,
-        "Primer Apellido:": res_apellido_p,
-        "Segundo Apellido:": res_apellido_m,
+        "Nombre (s):": res_n,
+        "Primer Apellido:": res_p,
+        "Segundo Apellido:": res_m,
         "Código Postal:": cp[0] if cp else "",
-        "Tipo de Vialidad:": limpiar_campo("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
-        "Nombre de Vialidad:": limpiar_campo("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
-        "Número Exterior:": limpiar_campo("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
-        "Número Interior:": limpiar_campo("NÚMERO INTERIOR", "NOMBRE DE COLONIA", texto),
-        "Nombre de Colonia:": limpiar_campo("NOMBRE DE COLONIA", "NOMBRE DE LA LOCALIDAD", texto),
-        "Nombre de la Localidad:": limpiar_campo("NOMBRE DE LA LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
-        "Nombre de Municipio o Demarcación Territorial:": limpiar_campo("TERRITORIAL", "NOMBRE DE LA ENTIDAD", texto),
-        "Nombre de la Entidad Federativa:": limpiar_campo("ENTIDAD FEDERATIVA", "ENTRE CALLE", texto)
+        "Tipo de Vialidad:": extraer("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
+        "Nombre de Vialidad:": extraer("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
+        "Número Exterior:": extraer("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
+        "Número Interior:": extraer("NÚMERO INTERIOR", "NOMBRE DE COLONIA", texto),
+        "Nombre de Colonia:": extraer("NOMBRE DE COLONIA", "NOMBRE DE LA LOCALIDAD", texto),
+        "Nombre de la Localidad:": extraer("NOMBRE DE LA LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
+        "Nombre de Municipio o Demarcación Territorial:": extraer("TERRITORIAL", "NOMBRE DE LA ENTIDAD", texto),
+        "Nombre de la Entidad Federativa:": extraer("ENTIDAD FEDERATIVA", "ENTRE CALLE", texto)
     }
 
+
+def extraer_datos_memoria(file_bytes, is_pdf=True):
+    texto_extraido = ""
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        for pagina in doc:
+            texto_extraido += pagina.get_text("text") + " "
+        doc.close()
+    except Exception as e:
+        print(f"Error: {e}")
+
+    texto_limpio = " ".join(texto_extraido.split()).upper()
+    resultados = procesar_texto_a_diccionario(texto_limpio)
+    resultados["texto_bruto"] = texto_limpio
     return resultados
