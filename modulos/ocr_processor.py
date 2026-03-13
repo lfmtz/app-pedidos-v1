@@ -4,54 +4,39 @@ import fitz
 
 def procesar_texto_a_diccionario(file_stream):
     doc = fitz.open(stream=file_stream, filetype="pdf")
-    pagina = doc[0]
+    # Extraemos el texto respetando el orden de las palabras en la hoja
+    texto = " ".join(doc[0].get_text("text", sort=True).split()).upper()
+    doc.close()
 
-    # Extraemos el texto respetando la estructura visual de bloques
-    texto_sucio = pagina.get_text("text", sort=True).upper()
+    # Función ultra-precisa: busca la etiqueta con sus ":" y corta en la siguiente
+    def extraer_por_dos_puntos(etiqueta_con_puntos, etiqueta_freno):
+        # Escapamos paréntesis para NOMBRE (S):
+        etiqueta_escrita = etiqueta_con_puntos.replace(
+            "(", "\(").replace(")", "\)")
 
-    # Definimos el mapa de correspondencia: {Etiqueta en PDF: Campo en App}
-    mapa_campos = {
-        "RFC": "RFC:",
-        "CURP": "CURP:",
-        "NOMBRE (S)": "Nombre (s):",
-        "PRIMER APELLIDO": "Primer Apellido:",
-        "SEGUNDO APELLIDO": "Segundo Apellido:",
-        "CÓDIGO POSTAL": "Código Postal:",
-        "TIPO DE VIALIDAD": "Tipo de Vialidad:",
-        "NOMBRE DE VIALIDAD": "Nombre de Vialidad:",
-        "NÚMERO EXTERIOR": "Número Exterior:",
-        "NÚMERO INTERIOR": "Número Interior:",
-        "NOMBRE DE LA COLONIA": "Nombre de la Colonia:",
-        "NOMBRE DE LA LOCALIDAD": "Nombre de la Localidad:",
-        "MUNICIPIO": "Nombre del Municipio o Demarcación Territorial:",
-        "ENTIDAD FEDERATIVA": "Nombre de la Entidad Federativa:"
-    }
-
-    # Orden de las etiquetas según aparecen normalmente en el SAT para poner "frenos"
-    orden_etiquetas = list(mapa_campos.keys())
-    res = {v: "" for v in mapa_campos.values()}
-
-    for i, etiqueta in enumerate(orden_etiquetas):
-        # El "freno" es la siguiente etiqueta en la lista para no pasarnos de largo
-        freno = orden_etiquetas[i+1] if i + \
-            1 < len(orden_etiquetas) else "PÁGINA|FECHA|ESTATUS"
-
-        # Regex: Busca la ETIQUETA, ignora los : y espacios, captura hasta el FRENO
-        # El [\(S\)]* es para que coincida con "NOMBRE (S)" o solo "NOMBRE"
-        patron = rf"{etiqueta}.*?[:\s]+(.*?)(?=\s+{freno}|$)"
-        match = re.search(patron, texto_sucio, re.DOTALL)
+        # Patrón: Busca 'ETIQUETA:' -> captura todo hasta la 'SIGUIENTE ETIQUETA'
+        patron = rf"{etiqueta_escrita}\s*(.*?)(?=\s+{etiqueta_freno}|$)"
+        match = re.search(patron, texto)
 
         if match:
             valor = match.group(1).strip()
-            # Limpieza final: si por error se coló la misma etiqueta o los ":"
-            valor = valor.replace(etiqueta, "").strip(" :.-")
+            # Si se coló otro ":" por error del PDF, cortamos ahí
+            return valor.split(":")[0].strip()
+        return ""
 
-            # Asignamos al campo correspondiente de la App
-            campo_app = mapa_campos[etiqueta]
-            res[campo_app] = valor
+    # --- TEST DE IDENTIDAD ---
+    # Para RFC y CURP usamos patrones porque a veces el ":" no viene pegado
+    rfc_match = re.search(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
+    curp_match = re.search(
+        r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
 
-    doc.close()
-    return res
+    return {
+        "RFC:": rfc_match.group(0) if rfc_match else "",
+        "CURP:": curp_match.group(0) if curp_match else "",
+        "Nombre (s):": extraer_por_dos_puntos("NOMBRE (S):", "PRIMER APELLIDO"),
+        "Primer Apellido:": extraer_por_dos_puntos("PRIMER APELLIDO:", "SEGUNDO APELLIDO"),
+        "Segundo Apellido:": extraer_por_dos_puntos("SEGUNDO APELLIDO:", "FECHA INICIO|ESTATUS|CURP")
+    }
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
