@@ -6,71 +6,93 @@ import easyocr
 
 
 def procesar_texto_a_diccionario(texto):
-    # 1. Normalización total del texto
+    # 1. Normalización: Quitamos ruidos comunes del PDF
     texto = " ".join(texto.split()).upper()
 
-    # 2. Función de búsqueda dinámica mejorada
-    def buscar_dinamico(etiqueta, frenos, fuente):
-        # Esta regex busca la etiqueta y captura TODO hasta encontrar un "freno" (otra etiqueta)
-        # o un límite de caracteres para evitar que se coma todo el documento
-        patron = rf"{etiqueta}[:\s]*([\w\sÑÁÉÍÓÚ\.\-\/]+?)(?=\s+(?:{frenos}|PÁGINA|$))"
-        match = re.search(patron, fuente)
-        if match:
-            valor = match.group(1).strip()
-            # Si el valor capturado es solo otra etiqueta (limpieza de ruido)
-            if any(f in valor for f in frenos.split('|')):
-                return ""
-            return valor
-        return ""
+    # 2. Diccionario de resultados vacío
+    res = {k: "" for k in [
+        "RFC:", "CURP:", "Nombre (s):", "Primer Apellido:", "Segundo Apellido:",
+        "Código Postal:", "Tipo de Vialidad:", "Nombre de Vialidad:",
+        "Número Exterior:", "Número Interior:", "Nombre de la Colonia:",
+        "Nombre de la Localidad:", "Nombre del Municipio o Demarcación Territorial:",
+        "Nombre de la Entidad Federativa:", "Entre Calle:"
+    ]}
 
-    # 3. Mapeo Dinámico (Sin datos fijos)
+    # --- EXTRACCIÓN POR PATRONES (RFC, CURP, CP son únicos) ---
     rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
     curps = re.findall(
         r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
     cps = re.findall(r"\b\d{5}\b", texto)
 
-    # Definimos los "frenos" (la siguiente etiqueta lógica) para cada campo
-    res = {
-        "RFC:": rfcs[0] if rfcs else "",
-        "CURP:": curps[0] if curps else "",
-        "Nombre (s):": buscar_dinamico("NOMBRE\s*\(.*?\)s", "PRIMER APELLIDO|RFC", texto),
-        "Primer Apellido:": buscar_dinamico("PRIMER APELLIDO", "SEGUNDO APELLIDO|RFC", texto),
-        "Segundo Apellido:": buscar_dinamico("SEGUNDO APELLIDO", "FECHA|ESTATUS|CURP", texto),
-        "Código Postal:": cps[0] if cps else "",
-        "Tipo de Vialidad:": buscar_dinamico("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
-        "Nombre de Vialidad:": buscar_dinamico("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
-        "Número Exterior:": buscar_dinamico("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
-        "Número Interior:": buscar_dinamico("NÚMERO INTERIOR", "NOMBRE DE (?:LA )?COLONIA", texto),
-        "Nombre de la Colonia:": buscar_dinamico("NOMBRE DE (?:LA )?COLONIA", "NOMBRE DE (?:LA )?LOCALIDAD", texto),
-        "Nombre de la Localidad:": buscar_dinamico("NOMBRE DE (?:LA )?LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
-        "Nombre del Municipio o Demarcación Territorial:": buscar_dinamico("TERRITORIAL", "NOMBRE DE (?:LA )?ENTIDAD", texto),
-        "Nombre de la Entidad Federativa:": buscar_dinamico("ENTIDAD FEDERATIVA", "ENTRE CALLE|ENTRE LAS CALLES", texto)
-    }
+    if rfcs:
+        res["RFC:"] = rfcs[0]
+    if curps:
+        res["CURP:"] = curps[0]
+    if cps:
+        res["Código Postal:"] = cps[0]
+
+    # --- LÓGICA DE EXTRACCIÓN DINÁMICA (Búsqueda entre anclas) ---
+    def extraer(ancla_inicio, ancla_fin, fuente):
+        # Busca lo que esté entre dos etiquetas, sin importar cuántos espacios haya
+        patron = rf"{ancla_inicio}[:\s]+(.*?)(?=\s+{ancla_fin}|PÁGINA|$)"
+        match = re.search(patron, fuente)
+        if match:
+            valor = match.group(1).strip()
+            # Si el valor capturado contiene otras etiquetas, está sucio
+            if ":" in valor or len(valor) < 1:
+                return ""
+            return valor
+        return ""
+
+    # Asignación dinámica basada en las etiquetas estándar del SAT
+    res["Nombre (s):"] = extraer("NOMBRE\s*\(S\)", "PRIMER APELLIDO", texto)
+    res["Primer Apellido:"] = extraer(
+        "PRIMER APELLIDO", "SEGUNDO APELLIDO", texto)
+    res["Segundo Apellido:"] = extraer(
+        "SEGUNDO APELLIDO", "FECHA INICIO|CURP", texto)
+    res["Tipo de Vialidad:"] = extraer(
+        "TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto)
+    res["Nombre de Vialidad:"] = extraer(
+        "NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto)
+    res["Número Exterior:"] = extraer(
+        "NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto)
+    res["Número Interior:"] = extraer(
+        "NÚMERO INTERIOR", "NOMBRE DE (?:LA )?COLONIA", texto)
+    res["Nombre de la Colonia:"] = extraer(
+        "NOMBRE DE (?:LA )?COLONIA", "NOMBRE DE (?:LA )?LOCALIDAD", texto)
+    res["Nombre de la Localidad:"] = extraer(
+        "NOMBRE DE (?:LA )?LOCALIDAD", "NOMBRE DE MUNICIPIO", texto)
+    res["Nombre del Municipio o Demarcación Territorial:"] = extraer(
+        "TERRITORIAL", "NOMBRE DE (?:LA )?ENTIDAD", texto)
+    res["Nombre de la Entidad Federativa:"] = extraer(
+        "ENTIDAD FEDERATIVA", "ENTRE CALLE", texto)
+    res["Entre Calle:"] = extraer("ENTRE CALLE", "Y CALLE", texto)
 
     return res
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
-    texto_extraido = ""
+    texto_acumulado = ""
     if is_pdf:
         try:
-            # Usamos el modo "blocks" para mantener la relación visual de los datos
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for pagina in doc:
-                bloques = pagina.get_text("blocks")
-                # Ordenamos bloques de arriba a abajo para no perder el orden de los datos
-                bloques.sort(key=lambda b: (b[1], b[0]))
-                for b in bloques:
-                    texto_extraido += b[4] + " "
+                # El modo "dict" nos da la posición exacta de cada palabra
+                blocks = pagina.get_text("dict")["blocks"]
+                for b in blocks:
+                    if "lines" in b:
+                        for l in b["lines"]:
+                            for s in l["spans"]:
+                                texto_acumulado += s["text"] + " "
             doc.close()
-        except Exception as e:
-            print(f"Error: {e}")
+        except:
+            pass
 
-    # Si el texto es nulo o imagen, EasyOCR entra al rescate
-    if len(texto_extraido.strip()) < 50:
+    # Si el PDF es una imagen o falló la extracción de texto (OCR al rescate)
+    if len(texto_acumulado.strip()) < 50:
         reader = easyocr.Reader(['es'])
         img = cv2.imdecode(np.frombuffer(
             file_bytes, np.uint8), cv2.IMREAD_COLOR)
-        texto_extraido = " ".join(reader.readtext(img, detail=0))
+        texto_acumulado = " ".join(reader.readtext(img, detail=0))
 
-    return procesar_texto_a_diccionario(texto_extraido.upper())
+    return procesar_texto_a_diccionario(texto_acumulado.upper())
