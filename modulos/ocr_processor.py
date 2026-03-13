@@ -1,81 +1,58 @@
 import re
 import fitz
-import numpy as np
-import cv2
-import easyocr
 
 
-def procesar_texto_a_diccionario(pdf_path_or_stream):
-    # Abrimos el documento con PyMuPDF para obtener coordenadas exactas
-    doc = fitz.open(stream=pdf_path_or_stream, filetype="pdf")
-    pagina = doc[0]  # Generalmente los datos están en la primera página
+def procesar_texto_a_diccionario(file_stream):
+    doc = fitz.open(stream=file_stream, filetype="pdf")
+    pagina = doc[0]
 
-    # Obtenemos todas las palabras con sus posiciones (x, y, ancho, alto)
-    palabras = pagina.get_text("words")
+    # Extraemos el texto respetando la estructura visual de bloques
+    texto_sucio = pagina.get_text("text", sort=True).upper()
 
-    res = {k: "" for k in [
-        "RFC:", "CURP:", "Nombre (s):", "Primer Apellido:", "Segundo Apellido:",
-        "Código Postal:", "Tipo de Vialidad:", "Nombre de Vialidad:",
-        "Número Exterior:", "Número Interior:", "Nombre de la Colonia:",
-        "Nombre de la Localidad:", "Nombre del Municipio o Demarcación Territorial:",
-        "Nombre de la Entidad Federativa:"
-    ]}
+    # Definimos el mapa de correspondencia: {Etiqueta en PDF: Campo en App}
+    mapa_campos = {
+        "RFC": "RFC:",
+        "CURP": "CURP:",
+        "NOMBRE (S)": "Nombre (s):",
+        "PRIMER APELLIDO": "Primer Apellido:",
+        "SEGUNDO APELLIDO": "Segundo Apellido:",
+        "CÓDIGO POSTAL": "Código Postal:",
+        "TIPO DE VIALIDAD": "Tipo de Vialidad:",
+        "NOMBRE DE VIALIDAD": "Nombre de Vialidad:",
+        "NÚMERO EXTERIOR": "Número Exterior:",
+        "NÚMERO INTERIOR": "Número Interior:",
+        "NOMBRE DE LA COLONIA": "Nombre de la Colonia:",
+        "NOMBRE DE LA LOCALIDAD": "Nombre de la Localidad:",
+        "MUNICIPIO": "Nombre del Municipio o Demarcación Territorial:",
+        "ENTIDAD FEDERATIVA": "Nombre de la Entidad Federativa:"
+    }
 
-    # Función para buscar qué hay a la derecha de una etiqueta
-    def buscar_a_la_derecha(etiqueta_texto, umbral_y=5):
-        # 1. Encontrar la etiqueta en la página
-        etiqueta_texto = etiqueta_texto.upper().replace(":", "")
-        hits = pagina.search_for(etiqueta_texto)
-        if not hits:
-            return ""
+    # Orden de las etiquetas según aparecen normalmente en el SAT para poner "frenos"
+    orden_etiquetas = list(mapa_campos.keys())
+    res = {v: "" for v in mapa_campos.values()}
 
-        # Tomamos el primer hallazgo
-        rect_etiqueta = hits[0]
+    for i, etiqueta in enumerate(orden_etiquetas):
+        # El "freno" es la siguiente etiqueta en la lista para no pasarnos de largo
+        freno = orden_etiquetas[i+1] if i + \
+            1 < len(orden_etiquetas) else "PÁGINA|FECHA|ESTATUS"
 
-        # 2. Buscar palabras que estén en la misma línea (Y similar) y a la derecha (X mayor)
-        candidatos = []
-        for p in palabras:
-            x0, y0, x1, y1, texto, block_no, line_no, word_no = p
-            # ¿Está en la misma franja horizontal?
-            if abs(y0 - rect_etiqueta.y0) < umbral_y:
-                # ¿Está a la derecha?
-                if x0 > rect_etiqueta.x0:
-                    candidatos.append((x0, texto))
+        # Regex: Busca la ETIQUETA, ignora los : y espacios, captura hasta el FRENO
+        # El [\(S\)]* es para que coincida con "NOMBRE (S)" o solo "NOMBRE"
+        patron = rf"{etiqueta}.*?[:\s]+(.*?)(?=\s+{freno}|$)"
+        match = re.search(patron, texto_sucio, re.DOTALL)
 
-        # Ordenamos de izquierda a derecha y unimos
-        candidatos.sort()
-        # Filtramos para no repetir la propia etiqueta si se coló
-        resultado = " ".join(
-            [c[1] for c in candidatos if c[1].upper() not in etiqueta_texto])
-        return resultado.strip(" :")
+        if match:
+            valor = match.group(1).strip()
+            # Limpieza final: si por error se coló la misma etiqueta o los ":"
+            valor = valor.replace(etiqueta, "").strip(" :.-")
 
-    # Mapeo directo usando las etiquetas de tus imágenes
-    res["RFC:"] = buscar_a_la_derecha("RFC")
-    res["CURP:"] = buscar_a_la_derecha("CURP")
-    res["Nombre (s):"] = buscar_a_la_derecha("Nombre (s)")
-    res["Primer Apellido:"] = buscar_a_la_derecha("Primer Apellido")
-    res["Segundo Apellido:"] = buscar_a_la_derecha("Segundo Apellido")
-    res["Código Postal:"] = buscar_a_la_derecha("Código Postal")
-    res["Tipo de Vialidad:"] = buscar_a_la_derecha("Tipo de Vialidad")
-    res["Nombre de Vialidad:"] = buscar_a_la_derecha("Nombre de Vialidad")
-    res["Número Exterior:"] = buscar_a_la_derecha("Número Exterior")
-    res["Número Interior:"] = buscar_a_la_derecha("Número Interior")
-    res["Nombre de la Colonia:"] = buscar_a_la_derecha("Nombre de la Colonia")
-    res["Nombre de la Localidad:"] = buscar_a_la_derecha(
-        "Nombre de la Localidad")
-    res["Nombre del Municipio o Demarcación Territorial:"] = buscar_a_la_derecha(
-        "Territorial")
-    res["Nombre de la Entidad Federativa:"] = buscar_a_la_derecha(
-        "Entidad Federativa")
+            # Asignamos al campo correspondiente de la App
+            campo_app = mapa_campos[etiqueta]
+            res[campo_app] = valor
 
     doc.close()
     return res
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
-    # Esta versión es mucho más precisa para tablas
-    try:
-        return procesar_texto_a_diccionario(file_bytes)
-    except Exception as e:
-        print(f"Error en extracción: {e}")
-        return {k: "ERROR" for k in ["RFC:", "Nombre (s):"]}  # Fallback
+    return procesar_texto_a_diccionario(file_bytes)
