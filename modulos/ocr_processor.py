@@ -5,75 +5,77 @@ import cv2
 import easyocr
 
 
-def procesar_texto_a_diccionario(texto):
-    # 1. Normalización total: un solo espacio y todo a mayúsculas
-    texto = " ".join(texto.split()).upper()
+def procesar_texto_a_diccionario(pdf_path_or_stream):
+    # Abrimos el documento con PyMuPDF para obtener coordenadas exactas
+    doc = fitz.open(stream=pdf_path_or_stream, filetype="pdf")
+    pagina = doc[0]  # Generalmente los datos están en la primera página
 
-    # 2. Lista de etiquetas que ensucian la extracción (Basura del SAT)
-    basura = [
-        r"NOMBRE\s*\(S\)", r"PRIMER\s+APELLIDO", r"SEGUNDO\s+APELLIDO",
-        r"CURP", r"RFC", r"CÉDULA\s+DE\s+IDENTIFICACIÓN\s+FISCAL",
-        r"CONSTANCIA\s+DE\s+SITUACIÓN\s+FISCAL", r"DATOS\s+DE\s+IDENTIFICACIÓN",
-        r"REGISTRO\s+FEDERAL\s+DE\s+CONTRIBUYENTES"
-    ]
+    # Obtenemos todas las palabras con sus posiciones (x, y, ancho, alto)
+    palabras = pagina.get_text("words")
 
-    # Función para limpiar etiquetas del valor extraído
-    def limpiar_valor(v):
-        for b in basura:
-            v = re.sub(b, "", v)
-        return v.strip(" :. -")
+    res = {k: "" for k in [
+        "RFC:", "CURP:", "Nombre (s):", "Primer Apellido:", "Segundo Apellido:",
+        "Código Postal:", "Tipo de Vialidad:", "Nombre de Vialidad:",
+        "Número Exterior:", "Número Interior:", "Nombre de la Colonia:",
+        "Nombre de la Localidad:", "Nombre del Municipio o Demarcación Territorial:",
+        "Nombre de la Entidad Federativa:"
+    ]}
 
-    # 3. Función de extracción con "Stop Words" (Frenos)
-    def buscar_campo(etiqueta, frenos, fuente):
-        # Busca la etiqueta y captura hasta encontrar el siguiente campo o el final
-        patron = rf"{etiqueta}[:\s]+(.*?)(?=\s+(?:{frenos}|PÁGINA|$))"
-        match = re.search(patron, fuente)
-        if match:
-            return limpiar_valor(match.group(1))
-        return ""
+    # Función para buscar qué hay a la derecha de una etiqueta
+    def buscar_a_la_derecha(etiqueta_texto, umbral_y=5):
+        # 1. Encontrar la etiqueta en la página
+        etiqueta_texto = etiqueta_texto.upper().replace(":", "")
+        hits = pagina.search_for(etiqueta_texto)
+        if not hits:
+            return ""
 
-    # 4. Mapeo por patrones fuertes (RFC, CURP, CP)
-    rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
-    curps = re.findall(
-        r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
-    cps = re.findall(r"\b\d{5}\b", texto)
+        # Tomamos el primer hallazgo
+        rect_etiqueta = hits[0]
 
-    return {
-        "RFC:": rfcs[0] if rfcs else "",
-        "CURP:": curps[0] if curps else "",
-        "Nombre (s):": buscar_campo(r"NOMBRE\s*\(S\)", "PRIMER APELLIDO|RFC", texto),
-        "Primer Apellido:": buscar_campo("PRIMER APELLIDO", "SEGUNDO APELLIDO|RFC", texto),
-        "Segundo Apellido:": buscar_campo("SEGUNDO APELLIDO", "FECHA|ESTATUS|CURP", texto),
-        "Código Postal:": cps[0] if cps else "",
-        "Tipo de Vialidad:": buscar_campo("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
-        "Nombre de Vialidad:": buscar_campo("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
-        "Número Exterior:": buscar_campo("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
-        "Número Interior:": buscar_campo("NÚMERO INTERIOR", "NOMBRE DE (?:LA )?COLONIA", texto),
-        "Nombre de la Colonia:": buscar_campo("NOMBRE DE (?:LA )?COLONIA", "NOMBRE DE (?:LA )?LOCALIDAD", texto),
-        "Nombre de la Localidad:": buscar_campo("NOMBRE DE (?:LA )?LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
-        "Nombre del Municipio o Demarcación Territorial:": buscar_campo("TERRITORIAL", "NOMBRE DE (?:LA )?ENTIDAD", texto),
-        "Nombre de la Entidad Federativa:": buscar_campo("ENTIDAD FEDERATIVA", "ENTRE CALLE|ENTRE LAS CALLES", texto),
-        "Entre Calle:": buscar_campo("ENTRE CALLE", "Y CALLE|ACTIVIDADES", texto)
-    }
+        # 2. Buscar palabras que estén en la misma línea (Y similar) y a la derecha (X mayor)
+        candidatos = []
+        for p in palabras:
+            x0, y0, x1, y1, texto, block_no, line_no, word_no = p
+            # ¿Está en la misma franja horizontal?
+            if abs(y0 - rect_etiqueta.y0) < umbral_y:
+                # ¿Está a la derecha?
+                if x0 > rect_etiqueta.x0:
+                    candidatos.append((x0, texto))
+
+        # Ordenamos de izquierda a derecha y unimos
+        candidatos.sort()
+        # Filtramos para no repetir la propia etiqueta si se coló
+        resultado = " ".join(
+            [c[1] for c in candidatos if c[1].upper() not in etiqueta_texto])
+        return resultado.strip(" :")
+
+    # Mapeo directo usando las etiquetas de tus imágenes
+    res["RFC:"] = buscar_a_la_derecha("RFC")
+    res["CURP:"] = buscar_a_la_derecha("CURP")
+    res["Nombre (s):"] = buscar_a_la_derecha("Nombre (s)")
+    res["Primer Apellido:"] = buscar_a_la_derecha("Primer Apellido")
+    res["Segundo Apellido:"] = buscar_a_la_derecha("Segundo Apellido")
+    res["Código Postal:"] = buscar_a_la_derecha("Código Postal")
+    res["Tipo de Vialidad:"] = buscar_a_la_derecha("Tipo de Vialidad")
+    res["Nombre de Vialidad:"] = buscar_a_la_derecha("Nombre de Vialidad")
+    res["Número Exterior:"] = buscar_a_la_derecha("Número Exterior")
+    res["Número Interior:"] = buscar_a_la_derecha("Número Interior")
+    res["Nombre de la Colonia:"] = buscar_a_la_derecha("Nombre de la Colonia")
+    res["Nombre de la Localidad:"] = buscar_a_la_derecha(
+        "Nombre de la Localidad")
+    res["Nombre del Municipio o Demarcación Territorial:"] = buscar_a_la_derecha(
+        "Territorial")
+    res["Nombre de la Entidad Federativa:"] = buscar_a_la_derecha(
+        "Entidad Federativa")
+
+    doc.close()
+    return res
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
-    texto_final = ""
-    if is_pdf:
-        try:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            for pagina in doc:
-                # Extraemos el texto en orden físico (top-to-bottom)
-                texto_final += pagina.get_text("text", sort=True) + " "
-            doc.close()
-        except:
-            pass
-
-    # Si el texto es basura o imagen, aplicamos OCR
-    if len(texto_final.strip()) < 60:
-        reader = easyocr.Reader(['es'])
-        img = cv2.imdecode(np.frombuffer(
-            file_bytes, np.uint8), cv2.IMREAD_COLOR)
-        texto_final = " ".join(reader.readtext(img, detail=0))
-
-    return procesar_texto_a_diccionario(texto_final.upper())
+    # Esta versión es mucho más precisa para tablas
+    try:
+        return procesar_texto_a_diccionario(file_bytes)
+    except Exception as e:
+        print(f"Error en extracción: {e}")
+        return {k: "ERROR" for k in ["RFC:", "Nombre (s):"]}  # Fallback
