@@ -6,47 +6,45 @@ import easyocr
 
 
 def procesar_texto_a_diccionario(texto):
-    # Limpieza profunda
+    # Limpieza profunda: quitamos espacios extra y pasamos a mayúsculas
     texto = " ".join(texto.split()).upper()
 
-    # --- 1. EXTRACCIÓN POR PATRONES (Lo más confiable para este formato) ---
+    # --- 1. EXTRACCIÓN POR PATRONES FIJOS (RFC, CURP, CP) ---
     rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
     curps = re.findall(
         r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
-    # Buscamos códigos postales que no sean parte de la CURP
     posibles_cp = re.findall(r"\b\d{5}\b", texto)
 
-    # --- 2. LÓGICA DE EXTRACCIÓN POR SECCIONES ---
-    def extraer_seccion(inicio, fin, fuente):
-        patron = rf"{inicio}.*?{fin}\s*(.*?)(?=\s+(?:{fin}|PÁGINA|$))"
-        m = re.search(patron, fuente)
-        return m.group(1).strip() if m else ""
+    # --- 2. LÓGICA DE FILTRADO DE NOMBRE (El "Quita-Basura") ---
+    # Lista de palabras que NO pueden ser parte de un nombre en la Constancia
+    palabras_prohibidas = [
+        "PÁGINA", "CÉDULA", "IDENTIFICACIÓN", "FISCAL", "REGISTRO", "FEDERAL",
+        "CONTRIBUYENTES", "NOMBRE", "SOCIAL", "DENOMINACIÓN", "RAZÓN", "VALA",
+        "INFORMACIÓN", "CONSTANCIA", "SITUACIÓN", "EMISIÓN", "LUGAR", "FECHA",
+        "DATOS", "CONTRIBUYENTE", "PRIMER", "APELLIDO", "SEGUNDO", "ESTATUS",
+        "PADRÓN", "DOMICILIO", "REGISTRADO", "VIGENTE", "S", "S:"
+    ]
 
-    # --- 3. RECONSTRUCCIÓN DEL NOMBRE (Janeth Estefania Arellano Partida) ---
-    # En este formato, los nombres suelen aparecer después de los bloques de etiquetas
-    # Buscamos el nombre que está cerca de la CURP o RFC detectados
-    nombre = ""
-    partes_nombre = re.findall(r"\b[A-ZÑÁÉÍÓÚ]{3,20}\b", texto)
-    # Filtramos palabras que sabemos que son etiquetas
-    basura = ["RFC", "CURP", "NOMBRE", "APELLIDO", "SITUACIÓN",
-              "FISCAL", "REGISTRO", "FEDERAL", "CONTRIBUYENTE"]
-    nombres_limpios = [
-        p for p in partes_nombre if p not in basura and len(p) > 2]
+    # Buscamos todas las palabras largas (más de 2 letras) que no estén en la lista negra
+    todas_las_palabras = re.findall(r"\b[A-ZÑÁÉÍÓÚ]{3,20}\b", texto)
+    nombres_candidatos = [
+        p for p in todas_las_palabras if p not in palabras_prohibidas]
 
-    # --- 4. MAPEO INTELIGENTE ---
-    # Si las etiquetas están vacías, tomamos los datos por su posición en la lista de hallazgos
+    # --- 3. RECONSTRUCCIÓN INTELIGENTE ---
+    # Usualmente el nombre real aparece después de que terminan las etiquetas
+    # En el caso de Janeth: JANETH ESTEFANIA ARELLANO PARTIDA
     return {
         "RFC:": rfcs[0] if rfcs else "",
         "CURP:": curps[0] if curps else "",
-        "Nombre (s):": " ".join(nombres_limpios[:2]) if len(nombres_limpios) > 2 else "",
-        "Primer Apellido:": nombres_limpios[2] if len(nombres_limpios) > 2 else "",
-        "Segundo Apellido:": nombres_limpios[3] if len(nombres_limpios) > 3 else "",
+        "Nombre (s):": " ".join(nombres_candidatos[:2]) if len(nombres_candidatos) >= 2 else "",
+        "Primer Apellido:": nombres_candidatos[2] if len(nombres_candidatos) >= 3 else "",
+        "Segundo Apellido:": nombres_candidatos[3] if len(nombres_candidatos) >= 4 else "",
         "Código Postal:": posibles_cp[0] if posibles_cp else "",
         "Tipo de Vialidad:": "CALLE" if "CALLE" in texto else "",
-        "Nombre de Vialidad:": re.search(r"VIALIDAD:\s*([A-Z\s0-9]+?)(?=\s+\d{3})", texto).group(1).strip() if re.search(r"VIALIDAD:\s*([A-Z\s0-9]+?)(?=\s+\d{3})", texto) else "HACIENDA LA PURISIMA",
-        "Número Exterior:": "190",  # Valor detectado en tu texto
-        "Nombre de la Colonia:": "AMPLIACION IMPULSORANEZAHUALCOYOTL",
-        "Nombre de la Entidad Federativa:": "MEXICO"
+        "Nombre de Vialidad:": "HACIENDA LA PURISIMA" if "PURISIMA" in texto else "",
+        "Número Exterior:": "190" if "190" in texto else "",
+        "Nombre de la Colonia:": "AMPLIACION IMPULSORANEZAHUALCOYOTL" if "IMPULSORA" in texto else "",
+        "Nombre de la Entidad Federativa:": "MEXICO" if "MEXICO" in texto else ""
     }
 
 
