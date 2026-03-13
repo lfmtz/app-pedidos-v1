@@ -6,72 +6,71 @@ import easyocr
 
 
 def procesar_texto_a_diccionario(texto):
-    # Limpieza profunda: quitamos espacios extra y pasamos a mayúsculas
+    # 1. Normalización total del texto
     texto = " ".join(texto.split()).upper()
 
-    # --- 1. EXTRACCIÓN POR PATRONES FIJOS (RFC, CURP, CP) ---
+    # 2. Función de búsqueda dinámica mejorada
+    def buscar_dinamico(etiqueta, frenos, fuente):
+        # Esta regex busca la etiqueta y captura TODO hasta encontrar un "freno" (otra etiqueta)
+        # o un límite de caracteres para evitar que se coma todo el documento
+        patron = rf"{etiqueta}[:\s]*([\w\sÑÁÉÍÓÚ\.\-\/]+?)(?=\s+(?:{frenos}|PÁGINA|$))"
+        match = re.search(patron, fuente)
+        if match:
+            valor = match.group(1).strip()
+            # Si el valor capturado es solo otra etiqueta (limpieza de ruido)
+            if any(f in valor for f in frenos.split('|')):
+                return ""
+            return valor
+        return ""
+
+    # 3. Mapeo Dinámico (Sin datos fijos)
     rfcs = re.findall(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
     curps = re.findall(
         r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
-    posibles_cp = re.findall(r"\b\d{5}\b", texto)
+    cps = re.findall(r"\b\d{5}\b", texto)
 
-    # --- 2. LÓGICA DE FILTRADO DE NOMBRE (El "Quita-Basura") ---
-    # Lista de palabras que NO pueden ser parte de un nombre en la Constancia
-    palabras_prohibidas = [
-        "PÁGINA", "CÉDULA", "IDENTIFICACIÓN", "FISCAL", "REGISTRO", "FEDERAL",
-        "CONTRIBUYENTES", "NOMBRE", "SOCIAL", "DENOMINACIÓN", "RAZÓN", "VALA",
-        "INFORMACIÓN", "CONSTANCIA", "SITUACIÓN", "EMISIÓN", "LUGAR", "FECHA",
-        "DATOS", "CONTRIBUYENTE", "PRIMER", "APELLIDO", "SEGUNDO", "ESTATUS",
-        "PADRÓN", "DOMICILIO", "REGISTRADO", "VIGENTE", "S", "S:"
-    ]
-
-    # Buscamos todas las palabras largas (más de 2 letras) que no estén en la lista negra
-    todas_las_palabras = re.findall(r"\b[A-ZÑÁÉÍÓÚ]{3,20}\b", texto)
-    nombres_candidatos = [
-        p for p in todas_las_palabras if p not in palabras_prohibidas]
-
-    # --- 3. RECONSTRUCCIÓN INTELIGENTE ---
-    # Usualmente el nombre real aparece después de que terminan las etiquetas
-    # En el caso de Janeth: JANETH ESTEFANIA ARELLANO PARTIDA
-    return {
+    # Definimos los "frenos" (la siguiente etiqueta lógica) para cada campo
+    res = {
         "RFC:": rfcs[0] if rfcs else "",
         "CURP:": curps[0] if curps else "",
-        "Nombre (s):": " ".join(nombres_candidatos[:2]) if len(nombres_candidatos) >= 2 else "",
-        "Primer Apellido:": nombres_candidatos[2] if len(nombres_candidatos) >= 3 else "",
-        "Segundo Apellido:": nombres_candidatos[3] if len(nombres_candidatos) >= 4 else "",
-        "Código Postal:": posibles_cp[0] if posibles_cp else "",
-        "Tipo de Vialidad:": "CALLE" if "CALLE" in texto else "",
-        "Nombre de Vialidad:": "HACIENDA LA PURISIMA" if "PURISIMA" in texto else "",
-        "Número Exterior:": "190" if "190" in texto else "",
-        "Nombre de la Colonia:": "AMPLIACION IMPULSORANEZAHUALCOYOTL" if "IMPULSORA" in texto else "",
-        "Nombre de la Entidad Federativa:": "MEXICO" if "MEXICO" in texto else ""
+        "Nombre (s):": buscar_dinamico("NOMBRE\s*\(.*?\)s", "PRIMER APELLIDO|RFC", texto),
+        "Primer Apellido:": buscar_dinamico("PRIMER APELLIDO", "SEGUNDO APELLIDO|RFC", texto),
+        "Segundo Apellido:": buscar_dinamico("SEGUNDO APELLIDO", "FECHA|ESTATUS|CURP", texto),
+        "Código Postal:": cps[0] if cps else "",
+        "Tipo de Vialidad:": buscar_dinamico("TIPO DE VIALIDAD", "NOMBRE DE VIALIDAD", texto),
+        "Nombre de Vialidad:": buscar_dinamico("NOMBRE DE VIALIDAD", "NÚMERO EXTERIOR", texto),
+        "Número Exterior:": buscar_dinamico("NÚMERO EXTERIOR", "NÚMERO INTERIOR", texto),
+        "Número Interior:": buscar_dinamico("NÚMERO INTERIOR", "NOMBRE DE (?:LA )?COLONIA", texto),
+        "Nombre de la Colonia:": buscar_dinamico("NOMBRE DE (?:LA )?COLONIA", "NOMBRE DE (?:LA )?LOCALIDAD", texto),
+        "Nombre de la Localidad:": buscar_dinamico("NOMBRE DE (?:LA )?LOCALIDAD", "NOMBRE DE MUNICIPIO", texto),
+        "Nombre del Municipio o Demarcación Territorial:": buscar_dinamico("TERRITORIAL", "NOMBRE DE (?:LA )?ENTIDAD", texto),
+        "Nombre de la Entidad Federativa:": buscar_dinamico("ENTIDAD FEDERATIVA", "ENTRE CALLE|ENTRE LAS CALLES", texto)
     }
+
+    return res
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
     texto_extraido = ""
     if is_pdf:
         try:
+            # Usamos el modo "blocks" para mantener la relación visual de los datos
             doc = fitz.open(stream=file_bytes, filetype="pdf")
-            # Extraemos texto de todas las páginas y también por bloques (importante para el SAT)
             for pagina in doc:
-                texto_extraido += pagina.get_text("text") + " "
+                bloques = pagina.get_text("blocks")
+                # Ordenamos bloques de arriba a abajo para no perder el orden de los datos
+                bloques.sort(key=lambda b: (b[1], b[0]))
+                for b in bloques:
+                    texto_extraido += b[4] + " "
             doc.close()
         except Exception as e:
-            print(f"Error al leer PDF: {e}")
+            print(f"Error: {e}")
 
-    # Si el texto es muy corto o falló, forzamos OCR
-    if len(texto_extraido.strip()) < 100:
-        try:
-            reader = easyocr.Reader(['es'])
-            nparr = np.frombuffer(file_bytes, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            resultados_ocr = reader.readtext(img, detail=0)
-            texto_extraido = " ".join(resultados_ocr)
-        except Exception as e:
-            print(f"Error en OCR: {e}")
+    # Si el texto es nulo o imagen, EasyOCR entra al rescate
+    if len(texto_extraido.strip()) < 50:
+        reader = easyocr.Reader(['es'])
+        img = cv2.imdecode(np.frombuffer(
+            file_bytes, np.uint8), cv2.IMREAD_COLOR)
+        texto_extraido = " ".join(reader.readtext(img, detail=0))
 
-    texto_final = texto_extraido.upper()
-    datos = procesar_texto_a_diccionario(texto_final)
-    datos["texto_bruto"] = texto_final
-    return datos
+    return procesar_texto_a_diccionario(texto_extraido.upper())
