@@ -4,38 +4,48 @@ import fitz
 
 def procesar_texto_a_diccionario(file_stream):
     doc = fitz.open(stream=file_stream, filetype="pdf")
-    # Extraemos el texto respetando el orden de las palabras en la hoja
-    texto = " ".join(doc[0].get_text("text", sort=True).split()).upper()
+    pagina = doc[0]
+    # Obtenemos las palabras con sus coordenadas (x0, y0, x1, y1, texto, ...)
+    palabras = pagina.get_text("words")
     doc.close()
 
-    # Función ultra-precisa: busca la etiqueta con sus ":" y corta en la siguiente
-    def extraer_por_dos_puntos(etiqueta_con_puntos, etiqueta_freno):
-        # Escapamos paréntesis para NOMBRE (S):
-        etiqueta_escrita = etiqueta_con_puntos.replace(
-            "(", "\(").replace(")", "\)")
+    def extraer_dato_columna_derecha(etiqueta_buscada):
+        target_x1 = None
+        target_y0 = None
+        target_y1 = None
 
-        # Patrón: Busca 'ETIQUETA:' -> captura todo hasta la 'SIGUIENTE ETIQUETA'
-        patron = rf"{etiqueta_escrita}\s*(.*?)(?=\s+{etiqueta_freno}|$)"
-        match = re.search(patron, texto)
+        # 1. Localizar la etiqueta (Columna 1)
+        for p in palabras:
+            x0, y0, x1, y1, texto, block_no, line_no, word_no = p
+            # Buscamos la etiqueta exacta (ej. "RFC:")
+            if etiqueta_buscada.upper() in texto.upper():
+                target_x1 = x1  # Límite derecho de la etiqueta
+                target_y0 = y0  # Altura superior
+                target_y1 = y1  # Altura inferior
+                break
 
-        if match:
-            valor = match.group(1).strip()
-            # Si se coló otro ":" por error del PDF, cortamos ahí
-            return valor.split(":")[0].strip()
-        return ""
+        if target_x1 is None:
+            return ""
 
-    # --- TEST DE IDENTIDAD ---
-    # Para RFC y CURP usamos patrones porque a veces el ":" no viene pegado
-    rfc_match = re.search(r"\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b", texto)
-    curp_match = re.search(
-        r"\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{2}[A-Z0-9]{3}\d\b", texto)
+        # 2. Capturar lo que esté a la derecha en la misma fila (Columna 2)
+        dato_encontrado = []
+        for p in palabras:
+            x0, y0, x1, y1, texto, block_no, line_no, word_no = p
+            # ¿Está a la derecha? y ¿Está en la misma franja de altura (margen de 3px)?
+            if x0 >= target_x1 and (abs(y0 - target_y0) < 3 or abs(y1 - target_y1) < 3):
+                # Evitamos capturar la propia etiqueta si se repite
+                if texto.upper().strip(":") != etiqueta_buscada.upper().strip(":"):
+                    dato_encontrado.append(texto)
 
+        return " ".join(dato_encontrado).strip()
+
+    # --- TEST DE IDENTIDAD POR COLUMNAS ---
     return {
-        "RFC:": rfc_match.group(0) if rfc_match else "",
-        "CURP:": curp_match.group(0) if curp_match else "",
-        "Nombre (s):": extraer_por_dos_puntos("NOMBRE (S):", "PRIMER APELLIDO"),
-        "Primer Apellido:": extraer_por_dos_puntos("PRIMER APELLIDO:", "SEGUNDO APELLIDO"),
-        "Segundo Apellido:": extraer_por_dos_puntos("SEGUNDO APELLIDO:", "FECHA INICIO|ESTATUS|CURP")
+        "RFC:": extraer_dato_columna_derecha("RFC:"),
+        "CURP:": extraer_dato_columna_derecha("CURP:"),
+        "Nombre (s):": extraer_dato_columna_derecha("Nombre (s):"),
+        "Primer Apellido:": extraer_dato_columna_derecha("Primer Apellido:"),
+        "Segundo Apellido:": extraer_dato_columna_derecha("Segundo Apellido:")
     }
 
 
