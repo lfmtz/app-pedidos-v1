@@ -15,14 +15,13 @@ def procesar_texto_a_diccionario(file_stream):
         partes = etiqueta.upper().replace(":", "").split()
         n = len(partes)
 
-        for i, p in enumerate(palabras):
-            # Intentamos hacer match de n palabras consecutivas
-            segmento = [palabras[i + j][4].upper().replace(":", "").strip()
-                        for j in range(n)
-                        if i + j < len(palabras)]
-
+        for i in range(len(palabras)):
+            segmento = [
+                palabras[i + j][4].upper().replace(":", "").strip()
+                for j in range(n)
+                if i + j < len(palabras)
+            ]
             if segmento == partes:
-                # Retornamos x1, y0, y1 de la ÚLTIMA palabra de la etiqueta
                 ultima = palabras[i + n - 1]
                 return ultima[2], ultima[1], ultima[3]  # x1, y0, y1
 
@@ -36,7 +35,6 @@ def procesar_texto_a_diccionario(file_stream):
         dato_final = []
         for p in palabras:
             x0, y0, x1, y1, texto = p[0], p[1], p[2], p[3], p[4]
-
             en_misma_fila = (
                 abs(y0 - t_y0) < margen_y or abs(y1 - t_y1) < margen_y)
             a_la_derecha = x0 > t_x1
@@ -46,13 +44,33 @@ def procesar_texto_a_diccionario(file_stream):
 
         return " ".join(dato_final).strip()
 
-    return {
-        "RFC":            extraer_valor("RFC:"),
-        "CURP":           extraer_valor("CURP:"),
-        "Nombre":         extraer_valor("Nombre (s):"),
+    # ── BLOQUE 1: IDENTIDAD ──────────────────────────────────────────────
+    identidad = {
+        "RFC":              extraer_valor("RFC:"),
+        "CURP":             extraer_valor("CURP:"),
+        "Nombre":           extraer_valor("Nombre (s):"),
         "Primer Apellido":  extraer_valor("Primer Apellido:"),
-        "Segundo Apellido": extraer_valor("Segundo Apellido:")
+        "Segundo Apellido": extraer_valor("Segundo Apellido:"),
     }
+
+    # ── BLOQUE 2: DOMICILIO ──────────────────────────────────────────────
+    # ⚠️  Las etiquetas largas (Municipio, Entidad) se buscan por su
+    #     fragmento FINAL porque get_text("words") las parte en tokens
+    #     y la última palabra es única y suficiente para ubicar la fila.
+    domicilio = {
+        "Codigo Postal":       extraer_valor("Código Postal:"),
+        "Tipo de Vialidad":    extraer_valor("Tipo de Vialidad:"),
+        "Nombre de Vialidad":  extraer_valor("Nombre de Vialidad:"),
+        "Numero Exterior":     extraer_valor("Número Exterior:"),
+        "Numero Interior":     extraer_valor("Número Interior:"),
+        "Nombre de la Colonia":    extraer_valor("Nombre de la Colonia:"),
+        "Nombre de la Localidad":  extraer_valor("Nombre de la Localidad:"),
+        # Se busca por el fragmento final exclusivo de cada etiqueta larga
+        "Municipio o Demarcacion": extraer_valor("Territorial:"),
+        "Entidad Federativa":      extraer_valor("Federativa:"),
+    }
+
+    return {**identidad, **domicilio}
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
