@@ -5,6 +5,7 @@ def procesar_texto_a_diccionario(file_stream):
     doc = fitz.open(stream=file_stream, filetype="pdf")
     pagina = doc[0]
     palabras = pagina.get_text("words")
+    MITAD_PAGINA = pagina.rect.width / 2  # ✅ límite de columna automático
     doc.close()
 
     def encontrar_etiqueta(etiqueta):
@@ -27,7 +28,7 @@ def procesar_texto_a_diccionario(file_stream):
 
         return None, None, None
 
-    def extraer_valor(etiqueta, margen_y=8):
+    def extraer_valor(etiqueta, margen_y=8, max_x=None):
         t_x1, t_y0, t_y1 = encontrar_etiqueta(etiqueta)
         if t_x1 is None:
             return ""
@@ -38,13 +39,15 @@ def procesar_texto_a_diccionario(file_stream):
             en_misma_fila = (
                 abs(y0 - t_y0) < margen_y or abs(y1 - t_y1) < margen_y)
             a_la_derecha = x0 > t_x1
+            dentro_columna = (max_x is None or x0 < max_x)  # ✅ nuevo límite
 
-            if a_la_derecha and en_misma_fila:
+            if a_la_derecha and en_misma_fila and dentro_columna:
                 dato_final.append(texto.strip())
 
         return " ".join(dato_final).strip()
 
     # ── BLOQUE 1: IDENTIDAD ──────────────────────────────────────────────
+    # Identidad ocupa todo el ancho, sin límite de columna
     identidad = {
         "RFC":              extraer_valor("RFC:"),
         "CURP":             extraer_valor("CURP:"),
@@ -54,20 +57,20 @@ def procesar_texto_a_diccionario(file_stream):
     }
 
     # ── BLOQUE 2: DOMICILIO ──────────────────────────────────────────────
-    # ⚠️  Las etiquetas largas (Municipio, Entidad) se buscan por su
-    #     fragmento FINAL porque get_text("words") las parte en tokens
-    #     y la última palabra es única y suficiente para ubicar la fila.
+    # Columna IZQUIERDA → max_x=MITAD_PAGINA para no agarrar la col. derecha
+    # Columna DERECHA   → sin max_x (o max_x=pagina.rect.width)
     domicilio = {
-        "Codigo Postal":       extraer_valor("Código Postal:"),
-        "Tipo de Vialidad":    extraer_valor("Tipo de Vialidad:"),
-        "Nombre de Vialidad":  extraer_valor("Nombre de Vialidad:"),
-        "Numero Exterior":     extraer_valor("Número Exterior:"),
-        "Numero Interior":     extraer_valor("Número Interior:"),
+        # Columna izquierda
+        "Codigo Postal":          extraer_valor("Código Postal:",          max_x=MITAD_PAGINA),
+        "Nombre de Vialidad":     extraer_valor("Nombre de Vialidad:",     max_x=MITAD_PAGINA),
+        "Numero Interior":        extraer_valor("Número Interior:",        max_x=MITAD_PAGINA),
+        "Nombre de la Localidad": extraer_valor("Nombre de la Localidad:", max_x=MITAD_PAGINA),
+        "Entidad Federativa":     extraer_valor("Federativa:",             max_x=MITAD_PAGINA),
+        # Columna derecha
+        "Tipo de Vialidad":        extraer_valor("Tipo de Vialidad:"),
+        "Numero Exterior":         extraer_valor("Número Exterior:"),
         "Nombre de la Colonia":    extraer_valor("Nombre de la Colonia:"),
-        "Nombre de la Localidad":  extraer_valor("Nombre de la Localidad:"),
-        # Se busca por el fragmento final exclusivo de cada etiqueta larga
         "Municipio o Demarcacion": extraer_valor("Territorial:"),
-        "Entidad Federativa":      extraer_valor("Federativa:"),
     }
 
     return {**identidad, **domicilio}
