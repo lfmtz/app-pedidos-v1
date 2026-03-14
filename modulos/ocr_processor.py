@@ -46,35 +46,33 @@ def procesar_texto_a_diccionario(file_stream):
 
         return " ".join(dato_final).strip()
 
-    # ── BLOQUE 1: IDENTIDAD ──────────────────────────────────────────────
-    # Identidad ocupa todo el ancho, sin límite de columna
-    identidad = {
-        "RFC":              extraer_valor("RFC:"),
-        "CURP":             extraer_valor("CURP:"),
-        "Nombre":           extraer_valor("Nombre (s):"),
-        "Primer Apellido":  extraer_valor("Primer Apellido:"),
-        "Segundo Apellido": extraer_valor("Segundo Apellido:"),
-    }
+    # ── AJUSTE DE LLAVES PARA COMPATIBILIDAD CON SHEETS ──────────────────
+    # He renombrado las llaves para que coincidan con los encabezados estándar
+    # y asegurar que la inyección no falle por nombres diferentes.
 
-    # ── BLOQUE 2: DOMICILIO ──────────────────────────────────────────────
-    # Columna IZQUIERDA → max_x=MITAD_PAGINA para no agarrar la col. derecha
-    # Columna DERECHA   → sin max_x (o max_x=pagina.rect.width)
-    domicilio = {
-        # Columna izquierda
-        "Codigo Postal":          extraer_valor("Código Postal:",          max_x=MITAD_PAGINA),
-        "Nombre de Vialidad":     extraer_valor("Nombre de Vialidad:",     max_x=MITAD_PAGINA),
-        "Numero Interior":        extraer_valor("Número Interior:",        max_x=MITAD_PAGINA),
-        "Nombre de la Localidad": extraer_valor("Nombre de la Localidad:", max_x=MITAD_PAGINA),
-        "Entidad Federativa":     extraer_valor("Federativa:",             max_x=MITAD_PAGINA),
-        # Columna derecha
-        "Tipo de Vialidad":        extraer_valor("Tipo de Vialidad:"),
-        "Numero Exterior":         extraer_valor("Número Exterior:"),
-        "Nombre de la Colonia":    extraer_valor("Nombre de la Colonia:"),
-        "Municipio o Demarcacion": extraer_valor("Territorial:"),
-    }
+    return {
+        # Identidad
+        "RFC:": extraer_valor("RFC:"),
+        "CURP:": extraer_valor("CURP:"),
+        "Nombre (s):": extraer_valor("Nombre (s):"),
+        "Primer Apellido:": extraer_valor("Primer Apellido:"),
+        "Segundo Apellido:": extraer_valor("Segundo Apellido:"),
 
-    return {**identidad, **domicilio}
+        # Domicilio (Columna Izquierda)
+        "Código Postal:": extraer_valor("Código Postal:", max_x=MITAD_PAGINA),
+        "Nombre de Vialidad:": extraer_valor("Nombre de Vialidad:", max_x=MITAD_PAGINA),
+        "Número Interior:": extraer_valor("Número Interior:", max_x=MITAD_PAGINA),
+        "Nombre de la Localidad:": extraer_valor("Nombre de la Localidad:", max_x=MITAD_PAGINA),
+        "Nombre de la Entidad Federativa:": extraer_valor("Federativa:", max_x=MITAD_PAGINA),
+
+        # Domicilio (Columna Derecha)
+        "Tipo de Vialidad:": extraer_valor("Tipo de Vialidad:"),
+        "Número Exterior:": extraer_valor("Número Exterior:"),
+        "Nombre de la Colonia:": extraer_valor("Nombre de la Colonia:"),
+        "Nombre del Municipio o Demarcación Territorial:": extraer_valor("Territorial:"),
+    }
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
+    # Esta es la función que llama tu bot o tu script principal
     return procesar_texto_a_diccionario(file_bytes)
