@@ -61,7 +61,15 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
 
         # 🔥 NUEVAS COLUMNAS (Asegúrate de que correspondan a tu Sheets real)
         "Identificaciones": 18,
-        "EMISION": 19
+        "EMISION": 19,
+        "FOLIO": 20,
+        "Auto": 21,
+        "Precio Auto": 22,
+        "Color": 23,
+        "Pago Inicial": 24,
+        "Plazo": 25,
+        "Mensualidades": 26,
+        "Monto a Financiar": 27
     }
 
     # Inserción de datos

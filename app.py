@@ -60,7 +60,7 @@ with tab2:
 
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
         "Opción A: Nuevo Cliente (Subir Constancia)",
-        "Opción B: Cliente Existente (Inyectar ID en T2)"
+        "Option B: Cliente Existente (Inyectar ID en T2)"
     ])
 
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
@@ -68,7 +68,6 @@ with tab2:
                                    "pdf", "jpg", "png", "jpeg"])
 
         if archivo is not None:
-            # 1. PROCESAMIENTO CON PERSISTENCIA
             if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
@@ -76,18 +75,16 @@ with tab2:
                     st.session_state.datos_extraidos = extraer_datos_memoria(
                         bytes_data, is_pdf)
 
-            # 2. CUADRO DE DEBUG
             with st.expander("🔍 DEBUG: Ver datos extraídos"):
                 if st.session_state.datos_extraidos:
                     st.json(st.session_state.datos_extraidos)
                 else:
                     st.write("No se capturó texto")
 
-            # 3. INTERFAZ DE VALIDACIÓN E INYECCIÓN
             if st.session_state.datos_extraidos:
                 datos = st.session_state.datos_extraidos
 
-                # Búsqueda externa de contacto
+                # Búsqueda externa de contacto (Nissan DB)
                 rfc_detectado = datos.get("RFC:", "")
                 if rfc_detectado and "Correo Electrónico" not in datos:
                     correo_ext, celular_ext = buscar_contacto_externo(
@@ -96,20 +93,46 @@ with tab2:
                     datos["Número Celular"] = celular_ext
 
                 st.divider()
-                st.subheader("📋 Selección de Documentos y Validación")
 
-                # --- SECCIÓN DE COMBOS ---
-                st.info("Seleccione la identificación oficial del cliente:")
-                col_c1, col_c2 = st.columns(2)
+                # --- SECCIÓN 1: IDENTIFICACIÓN ---
+                st.subheader("📋 Documentación Oficial")
+                col_c1, col_c2, col_c3 = st.columns(3)
                 with col_c1:
                     ident_sel = st.selectbox(
-                        "Identificaciones:", OPCIONES_IDENTIFICACION)
+                        "Tipo de Identificación:", OPCIONES_IDENTIFICACION)
                 with col_c2:
-                    emis_sel = st.selectbox("EMISION:", OPCIONES_EMISION)
+                    emis_sel = st.selectbox(
+                        "Institución Emisora:", OPCIONES_EMISION)
+                with col_c3:
+                    folio_val = st.text_input("Folio de Identificación (ID):")
 
                 st.markdown("---")
 
-                # --- FORMULARIO DE DATOS ---
+                # --- SECCIÓN 2: DATOS DEL AUTO Y VENTA ---
+                st.subheader("🚗 Detalles de la Unidad y Cotización")
+                col_a1, col_a2, col_a3 = st.columns(3)
+                with col_a1:
+                    auto_val = st.text_input(
+                        "Modelo del Auto (ej. Versa Advance):")
+                    precio_val = st.number_input(
+                        "Precio de Lista:", min_value=0.0, step=100.0)
+                with col_a2:
+                    color_val = st.text_input("Color de la Unidad:")
+                    pago_ini_val = st.number_input(
+                        "Pago Inicial (Enganche):", min_value=0.0, step=100.0)
+                with col_a3:
+                    plazo_val = st.selectbox(
+                        "Plazo (Meses):", ["12", "18", "24", "36", "48", "60", "72"])
+                    monto_fin_val = st.number_input(
+                        "Monto a Financiar:", min_value=0.0, step=100.0)
+
+                mensualidad_val = st.number_input(
+                    "Pago Mensual (IVA Incl.):", min_value=0.0, step=10.0)
+
+                st.markdown("---")
+
+                # --- SECCIÓN 3: DATOS FISCALES (OCR) ---
+                st.subheader("🏠 Validación de Datos SAT")
                 datos_validados = {}
                 col1, col2 = st.columns(2)
                 for i, (k, v) in enumerate(datos.items()):
@@ -117,26 +140,35 @@ with tab2:
                         datos_validados[k] = st.text_input(
                             f"Validar {k}", value=v)
 
-                # --- BOTÓN FINAL DE CONFIRMACIÓN ---
+                # --- BOTÓN DE CIERRE ---
                 if st.button("Confirmar y Generar Pedido"):
-                    # Validación de seguridad de los combos
                     if ident_sel == "SELECCIONE UNA OPCIÓN" or emis_sel == "SELECCIONE UNA OPCIÓN":
                         st.error(
-                            "❌ Error: Debes seleccionar una Identificación y su Emisor.")
+                            "❌ Por favor, selecciona Identificación y Emisor.")
                     else:
-                        with st.spinner("Inyectando en Google Sheets..."):
-                            # Agregamos los combos al diccionario final
-                            datos_validados["Identificaciones"] = ident_sel
-                            datos_validados["EMISION"] = emis_sel
+                        with st.spinner("Guardando en base de datos..."):
+                            # Inyectamos los datos manuales al diccionario final
+                            datos_validados.update({
+                                "Identificaciones": ident_sel,
+                                "EMISION": emis_sel,
+                                "FOLIO": folio_val,
+                                "Auto": auto_val,
+                                "Precio Auto": precio_val,
+                                "Color": color_val,
+                                "Pago Inicial": pago_ini_val,
+                                "Plazo": plazo_val,
+                                "Mensualidades": mensualidad_val,
+                                "Monto a Financiar": monto_fin_val
+                            })
 
                             id_gen = guardar_pedido_y_actualizar_t2(
                                 datos_validados)
 
                             st.success(
-                                f"✅ ¡Pedido {id_gen} inyectado con éxito!")
+                                f"✅ ¡Pedido {id_gen} registrado con éxito!")
                             st.balloons()
                             st.info(
-                                "La celda T2 del formato ha sido actualizada correctamente.")
+                                "La celda T2 ha sido actualizada en tu formato.")
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         id_existente = st.text_input(
