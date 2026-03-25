@@ -35,6 +35,7 @@ with tab1:
             st.warning("Por favor ingrese un RFC.")
 
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
+# --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
@@ -44,48 +45,60 @@ with tab2:
     ])
 
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
-        # Dejamos solo el cargador de archivos para máxima estabilidad
         archivo = st.file_uploader("Sube la Constancia de Situación Fiscal (PDF o Imagen)",
                                    type=["pdf", "jpg", "png", "jpeg"])
 
         if archivo is not None:
-            with st.spinner("Procesando documento..."):
-                bytes_data = archivo.read()
-                is_pdf = archivo.name.lower().endswith('.pdf')
+            # ✅ PERSISTENCIA: Procesamos solo si no existen datos en sesión o se sube uno nuevo
+            if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
+                with st.spinner("Procesando documento..."):
+                    bytes_data = archivo.read()
+                    is_pdf = archivo.name.lower().endswith('.pdf')
+                    # Guardamos el resultado directamente en el estado de la sesión
+                    st.session_state.datos_extraidos = extraer_datos_memoria(
+                        bytes_data, is_pdf)
 
-                # Extraemos datos usando el ocr_processor limpio
-                datos_extraidos = extraer_datos_memoria(bytes_data, is_pdf)
-
-                # 2. CUADRO DE DEPURACIÓN (Aparecerá justo debajo del cargador)
+            # 🔍 DEBUG: Corregido para mostrar el diccionario real
             with st.expander("🔍 DEBUG: Ver texto que el sistema leyó"):
-                st.code(datos_extraidos.get(
-                    "texto_bruto", "No se capturó texto"))
+                if st.session_state.datos_extraidos:
+                    st.json(st.session_state.datos_extraidos)
+                else:
+                    st.write("No se capturó texto")
 
-                if datos_extraidos:
-                    # LÓGICA DE BÚSQUEDA EXTERNA (INYECCIÓN)
-                    rfc_detectado = datos_extraidos.get("RFC:", "")
-                    if rfc_detectado:
-                        correo_ext, celular_ext = buscar_contacto_externo(
-                            rfc_detectado)
-                        datos_extraidos["Correo Electrónico"] = correo_ext
-                        datos_extraidos["Número Celular"] = celular_ext
+            # Si logramos extraer datos, procedemos con la validación e inyección
+            if st.session_state.datos_extraidos:
+                datos = st.session_state.datos_extraidos
 
-                    st.divider()
-                    st.subheader("Revisión de Datos Extraídos")
+                # 📡 LÓGICA DE BÚSQUEDA EXTERNA (Correo y Celular)
+                rfc_detectado = datos.get("RFC:", "")
+                if rfc_detectado and "Correo Electrónico" not in datos:
+                    correo_ext, celular_ext = buscar_contacto_externo(
+                        rfc_detectado)
+                    datos["Correo Electrónico"] = correo_ext
+                    datos["Número Celular"] = celular_ext
 
-                    datos_validados = {}
-                    col1, col2 = st.columns(2)
-                    for i, (k, v) in enumerate(datos_extraidos.items()):
-                        with col1 if i % 2 == 0 else col2:
-                            datos_validados[k] = st.text_input(k, value=v)
+                st.divider()
+                st.subheader("Revisión de Datos Extraídos")
 
-                    if st.button("Confirmar y Generar Pedido"):
-                        with st.spinner("Guardando en Sheets y actualizando T2..."):
-                            id_gen = guardar_pedido_y_actualizar_t2(
-                                datos_validados)
-                            st.success(
-                                f"✅ Datos guardados. ID Generado: {id_gen}")
-                            st.info("La celda T2 ha sido actualizada.")
+                # Formulario para validación manual
+                datos_validados = {}
+                col1, col2 = st.columns(2)
+
+                # Generamos los campos de texto basados en las llaves del extractor
+                for i, (k, v) in enumerate(datos.items()):
+                    with col1 if i % 2 == 0 else col2:
+                        # Creamos el input y guardamos el valor validado
+                        datos_validados[k] = st.text_input(
+                            f"Validar {k}", value=v)
+
+                if st.button("Confirmar y Generar Pedido"):
+                    with st.spinner("Guardando en Sheets y actualizando T2..."):
+                        # Inyectamos los datos validados por el usuario
+                        id_gen = guardar_pedido_y_actualizar_t2(
+                            datos_validados)
+                        st.success(f"✅ Datos guardados. ID Generado: {id_gen}")
+                        st.info(
+                            "La celda T2 en el Formato de Pedido ha sido actualizada.")
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         id_existente = st.text_input(
