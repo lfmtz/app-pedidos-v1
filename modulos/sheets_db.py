@@ -53,20 +53,62 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     datos_limpios["ID_SEGUIMIENTO"] = id_seguimiento
 
     # 2. MAPEO SIN CARACTERES ESPECIALES
+    # --- MAPEO ALFABÉTICO CORREGIDO (SEGÚN IMÁGENES) ---
+    # Asegúrate de que las llaves (ej. "RFC:") coincidan exactamente con tu app.py
     mapeo = {
-        "ID_SEGUIMIENTO": 1, "NOMBRE S": 2, "PRIMER APELLIDO": 3, "SEGUNDO APELLIDO": 4,
-        "RFC": 5, "CURP": 6, "NOMBRE DE VIALIDAD CALLE": 7, "TIPO DE VIALIDAD": 8,
-        "NUMERO EXTERIOR": 9, "NUMERO INTERIOR": 10, "NOMBRE DE LA COLONIA": 11,
-        "NOMBRE DE LA LOCALIDAD": 12, "NOMBRE DEL MUNICIPIO O DEMARCACION TERRITORIAL": 13,
-        "NOMBRE DE LA ENTIDAD FEDERATIVA": 14, "CODIGO POSTAL": 15, "CORREO ELECTRONICO": 16,
-        "NUMERO CELULAR": 17, "IDENTIFICACIONES": 18, "EMISION": 19, "FOLIO": 20,
-        "AUTO": 21, "PRECIO AUTO": 22, "COLOR": 23, "PAGO INICIAL": 24, "PLAZO": 25,
-        "MENSUALIDADES": 26, "MONTO A FINANCIAR": 27, "AÑO": 28, "OCUPACION": 29,
-        "FINANCIER PROPIA": 30, "CONTADO": 31, "BANCARIO": 32, "KUNA": 33, "OTRO": 34,
-        "SICREA": 35, "GARANTIA EXTENDIDA": 36, "SEGURO": 37, "KIT DE SEGURIDAD": 38,
-        "GESTORIAPLACAS / TENENCIA": 39, "VERIFICACION": 40, "ACCESORIOS": 41,
-        "TOMA DE AUTO": 42, "PRECIO DE TOMA": 43, "GERENTE DE SEMINUEVOS": 44,
-        "GERENTE DE VENTAS": 45
+        # Sección A - J (Imagen 1)
+        "ID_Seguimiento": 1,        # Columna A
+        "Nombre (s):": 2,          # Columna B
+        "Primer Apellido:": 3,     # Columna C
+        "Segundo Apellido:": 4,    # Columna D
+        "RFC:": 5,                  # Columna E
+        "CURP:": 6,                 # Columna F
+        "Nombre de Vialidad (Calle):": 7,  # Columna G
+        "Tipo de Vialidad:": 8,    # Columna H
+        "Número Exterior:": 9,      # Columna I
+        "Número Interior:": 10,     # Columna J
+
+        # Sección K - V (Imagen 2)
+        "Nombre de la Colonia:": 11,  # Columna K
+        "Nombre de la Localidad:": 12,  # Columna L
+        "Nombre del Municipio o Demarcación Territorial:": 13,  # Columna M
+        "Nombre de la Entidad Federativa:": 14,  # Columna N
+        "Código Postal:": 15,       # Columna O
+        "Correo Electrónico": 16,   # Columna P
+        "Número Celular": 17,       # Columna Q
+        "Identificaciones": 18,     # Columna R
+        "EMISION": 19,               # Columna S
+        "FOLIO": 20,                 # Columna T
+        "Auto": 21,                  # Columna U
+        "Precio Auto": 22,           # Columna V
+
+        # Sección intermedia W - AM (No mostrada, asumimos correlativas)
+        "Color": 23,                 # Columna W
+        "Pago Inicial": 24,         # Columna X
+        "Plazo": 25,                 # Columna Y
+        "Mensualidades": 26,         # Columna Z
+        "Monto a Financiar": 27,    # Columna AA
+        "AÑO": 28,                  # Columna AB
+        "OCUPACION": 29,            # Columna AC
+        "FINANCIER PROPIA": 30,     # Columna AD
+        "CONTADO": 31,              # Columna AE
+        "BANCARIO": 32,             # Columna AF
+        "KUNA": 33,                  # Columna AG
+        "SICREA": 34,                # Columna AH
+        "OTRO": 35,                  # Columna AI
+        "GARANTIA EXTENDIDA": 36,   # Columna AJ
+        "SEGURO": 37,                # Columna AK
+        "KIT DE SEGURIDAD": 38,     # Columna AL
+        # Columna AM (Ojo: según imagen 3, AM es Verificación)
+        "VERIFICACION": 39,
+
+        # Sección AN - AU (Imagen 3)
+        "GESTORIAPLACAS / TENENCIA": 40,  # Columna AN (PLACAS / T)
+        "ACCESORIOS": 41,                # Columna AP
+        "TOMA DE AUTO": 42,              # Columna AQ
+        "PRECIO DE TOMA": 43,            # Columna AR
+        "GERENTE DE SEMINUEVOS": 44,     # Columna AS
+        "GERENTE DE VENTAS": 45          # Columna AT/AU
     }
 
     fila_a_inyectar = [""] * 45
