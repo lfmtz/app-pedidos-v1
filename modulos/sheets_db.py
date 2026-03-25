@@ -12,15 +12,12 @@ def get_client():
             with open("credenciales.json") as f:
                 creds_json = f.read()
         except FileNotFoundError:
-            st.error(
-                "❌ No se encontró el archivo 'credenciales.json'. Asegúrate de que esté en la carpeta principal.")
+            st.error("❌ No se encontró el archivo 'credenciales.json'.")
             st.stop()
 
     creds_dict = json.loads(creds_json)
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    scopes = ["https://www.googleapis.com/auth/spreadsheets",
+              "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
@@ -45,11 +42,11 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- CORRECCIÓN AQUÍ: No sobrescribir datos_constancia ---
-    # Guardamos el ID en el diccionario para que se mapee a la columna 1
+    # Agregamos el ID al diccionario para el mapeo
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
-    # Mapeo de columnas
+    # --- MAPEO CORREGIDO ---
+    # Asegúrate de que los nombres de las llaves coincidan EXACTAMENTE con app.py
     mapeo = {
         "ID_Seguimiento": 1,
         "Nombre (s):": 2,
@@ -57,6 +54,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Segundo Apellido:": 4,
         "RFC:": 5,
         "CURP:": 6,
+        # <--- Aquí estaba el detalle de inyección
         "Nombre de Vialidad (Calle):": 7,
         "Tipo de Vialidad:": 8,
         "Número Exterior:": 9,
@@ -80,7 +78,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Monto a Financiar": 27,
         "AÑO": 28,
         "OCUPACION": 29,
-        "FINANCIER PROPIA": 30,  # Ajustado según tu imagen (sin la A final)
+        "FINANCIER PROPIA": 30,
         "CONTADO": 31,
         "BANCARIO": 32,
         "KUNA": 33,
@@ -97,15 +95,21 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "GERENTE DE SEMINUEVOS": 44,
         "GERENTE DE VENTAS": 45
     }
-    # Inserción de datos
+
+    # --- INSERCIÓN EFICIENTE ---
+    # En lugar de update_cell uno por uno (que es lento), preparamos una fila
+    max_col = max(mapeo.values())
+    fila_a_inyectar = [""] * max_col
+
     for campo, valor in datos_constancia.items():
         if campo in mapeo:
-            columna = mapeo[campo]  # CORRECCIÓN: Usar el valor del mapeo
-            sheet_pedido.update_cell(
-                nueva_fila_num, columna, str(valor).upper())
+            idx = mapeo[campo] - 1  # Ajuste a índice 0
+            fila_a_inyectar[idx] = str(valor).upper()
 
-    # ACTUALIZACIÓN DE CELDA T2
-    sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
+    sheet_pedido.append_row(fila_a_inyectar)
+
+    # Actualización de celda T2 (Formato Nuevo)
+    sheet_formato.update(range_name='T2', values=[[id_seguimiento]])
 
     return id_seguimiento
 
@@ -114,28 +118,18 @@ def inyectar_t2_existente(id_seguimiento):
     client = get_client()
     doc_pedido = client.open("FORMATO DE PEDIDO_26")
     sheet_formato = doc_pedido.worksheet("Pedido")
-    sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
+    sheet_formato.update(range_name='T2', values=[[id_seguimiento]])
 
 
 def buscar_contacto_externo(rfc_busqueda):
-    """
-    Busca en SOL_CREDITO_ACTUAL_2026 el correo y celular asociados al RFC.
-    """
     try:
         client = get_client()
         sheet_base = client.open("SOL_CREDITO_ACTUAL_2026").sheet1
-
-        # Localizar la celda del RFC
         celda = sheet_base.find(rfc_busqueda.strip().upper())
-
-        # Obtener los valores de esa fila
         fila_valores = sheet_base.row_values(celda.row)
-
-        # Según tu lógica: índice 12 (columna 13) celular, índice 13 (columna 14) correo
+        # Ajuste de índices: 12=Celular, 13=Correo
         celular = fila_valores[12] if len(fila_valores) > 12 else ""
         correo = fila_valores[13] if len(fila_valores) > 13 else ""
-
         return correo, celular
-    except Exception:
-        # Si no se encuentra el RFC o hay error, devolvemos vacío para llenado manual
+    except:
         return "", ""

@@ -7,7 +7,7 @@ from modulos.ocr_processor import extraer_datos_memoria
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
 st.title("🏦 Sistema de Gestión de Créditos y Pedidos")
 
-# --- LISTAS DE OPCIONES PARA COMBOS ---
+# --- LISTAS DE OPCIONES ---
 OPCIONES_IDENTIFICACION = [
     "SELECCIONE UNA OPCIÓN", "CREDENCIAL PARA VOTAR", "PASAPORTE",
     "Tarjeta de Residente Temporal", "Tarjeta de Residente Permanente",
@@ -55,13 +55,14 @@ with tab2:
             if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
-                    is_pdf = archivo.name.lower().endswith('.pdf')
                     st.session_state.datos_extraidos = extraer_datos_memoria(
-                        bytes_data, is_pdf)
+                        bytes_data, archivo.name.lower().endswith('.pdf'))
 
             if st.session_state.datos_extraidos:
                 datos = st.session_state.datos_extraidos
                 rfc_detectado = datos.get("RFC:", "")
+
+                # Búsqueda de contactos externos si no vienen en el OCR
                 if rfc_detectado and "Correo Electrónico" not in datos:
                     correo_ext, celular_ext = buscar_contacto_externo(
                         rfc_detectado)
@@ -84,8 +85,6 @@ with tab2:
                 with col_c4:
                     ocupacion_val = st.text_input("Ocupación del Cliente:")
 
-                st.markdown("---")
-
                 # --- SECCIÓN 2: DATOS DE LA UNIDAD Y VENTA ---
                 st.subheader("🚗 Detalles de la Unidad y Financiamiento")
                 col_a1, col_a2, col_a3, col_a4 = st.columns(4)
@@ -106,24 +105,25 @@ with tab2:
                     mensualidad_val = st.number_input(
                         "Mensualidad:", min_value=0.0, step=100.0)
                 with col_a4:
-                    st.write("**Canal de Venta / Financiera:**")
-                    tipo_fin = st.multiselect("Seleccione opciones:", [
+                    tipo_fin = st.multiselect("Canal de Venta:", [
                                               "FINANCIERA PROPIA", "CONTADO", "BANCARIO", "KUNA", "SICREA", "OTRO"])
 
-                st.divider()
-
-                # --- SECCIÓN 3: ADICIONALES Y TRÁMITES ---
-                st.subheader("🛠️ Adicionales y Trámites (Precios Agencia)")
+                # --- SECCIÓN 3: ADICIONALES Y TOMA DE AUTO ---
+                st.subheader("🛠️ Adicionales y Toma de Unidad")
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     garantia_val = st.number_input(
                         "Garantía Extendida $:", min_value=0.0)
                     seguro_val = st.number_input("Seguro $:", min_value=0.0)
+                    toma_auto_val = st.text_input(
+                        "Unidad que se toma (Modelo/Año):")
                 with c2:
                     kit_val = st.number_input(
                         "Kit de Seguridad $:", min_value=0.0)
                     gestoria_val = st.number_input(
                         "Gestoría Placas $:", min_value=0.0)
+                    precio_toma_val = st.number_input(
+                        "Precio de Toma $:", min_value=0.0)
                 with c3:
                     verif_val = st.number_input(
                         "Verificación $:", min_value=0.0)
@@ -131,7 +131,7 @@ with tab2:
 
                 st.divider()
 
-                # --- SECCIÓN 4: AUTORIZACIONES Y DATOS SAT ---
+                # --- SECCIÓN 4: AUTORIZACIONES Y REVISIÓN SAT ---
                 st.subheader("✍️ Autorizaciones")
                 ca1, ca2 = st.columns(2)
                 with ca1:
@@ -140,8 +140,13 @@ with tab2:
                 with ca2:
                     gerente_ventas = st.text_input("Gerente de Ventas:")
 
-                with st.expander("🏠 Revisar Datos SAT Extraídos"):
+                with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
                     datos_validados = {}
+                    # Aseguramos que la llave de vialidad sea consistente para la inyección
+                    if "Nombre de Vialidad (Calle):" not in datos and "Nombre de Vialidad:" in datos:
+                        datos["Nombre de Vialidad (Calle):"] = datos.pop(
+                            "Nombre de Vialidad:")
+
                     cols_sat = st.columns(2)
                     for i, (k, v) in enumerate(datos.items()):
                         with cols_sat[i % 2]:
@@ -155,14 +160,12 @@ with tab2:
                             "❌ Por favor, selecciona un Tipo de Identificación.")
                     else:
                         with st.spinner("Inyectando datos en Sheets..."):
-                            # Consolidación final de datos para el mapeo de 45/46 columnas
+                            # Consolidación final de datos con todas tus correcciones
                             datos_validados.update({
-                                # Documentación
                                 "Identificaciones": ident_sel,
                                 "EMISION": emis_sel,
                                 "FOLIO": folio_val,
                                 "OCUPACION": ocupacion_val,
-                                # Unidad y Venta
                                 "Auto": auto_val,
                                 "AÑO": año_val,
                                 "Precio Auto": precio_val,
@@ -171,21 +174,23 @@ with tab2:
                                 "Plazo": plazo_val,
                                 "Mensualidades": mensualidad_val,
                                 "Monto a Financiar": monto_fin_val,
-                                # Canales de Venta (Vacío si no se selecciona)
+                                # Canales (Limpieza de celdas)
                                 "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
                                 "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
                                 "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
                                 "KUNA": "SÍ" if "KUNA" in tipo_fin else "",
                                 "SICREA": "SÍ" if "SICREA" in tipo_fin else "",
                                 "OTRO": "SÍ" if "OTRO" in tipo_fin else "",
-                                # Adicionales (Montos Manuales)
+                                # Montos Adicionales
                                 "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
                                 "SEGURO": seguro_val if seguro_val > 0 else "",
                                 "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
                                 "GESTORIAPLACAS / TENENCIA": gestoria_val if gestoria_val > 0 else "",
                                 "VERIFICACION": verif_val if verif_val > 0 else "",
                                 "ACCESORIOS": acc_val if acc_val > 0 else "",
-                                # Gerencia
+                                # Toma de auto y Gerencia
+                                "TOMA DE AUTO": toma_auto_val,
+                                "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
                                 "GERENTE DE SEMINUEVOS": gerente_semi,
                                 "GERENTE DE VENTAS": gerente_ventas
                             })
