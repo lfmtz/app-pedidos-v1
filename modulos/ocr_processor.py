@@ -58,7 +58,7 @@ def procesar_texto_a_diccionario(file_stream):
         "Primer Apellido:": extraer_valor("Primer Apellido:"),
         "Segundo Apellido:": extraer_valor("Segundo Apellido:"),
 
-        # Domicilio (Columna Izquierda)
+        # Domicilio (Columna Izquierda) - Usamos MITAD_PAGINA para no invadir la derecha
         "Código Postal:": extraer_valor("Código Postal:", max_x=MITAD_PAGINA),
         "Nombre de Vialidad:": extraer_valor("Nombre de Vialidad:", max_x=MITAD_PAGINA),
         "Número Interior:": extraer_valor("Número Interior:", max_x=MITAD_PAGINA),
