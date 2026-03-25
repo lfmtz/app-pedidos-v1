@@ -4,7 +4,7 @@ from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Gestor de Créditos", layout="wide")
+st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
 st.title("🏦 Sistema de Gestión de Créditos y Pedidos")
 
 # --- LISTAS DE OPCIONES PARA COMBOS ---
@@ -90,8 +90,8 @@ with tab2:
                 st.subheader("🚗 Detalles de la Unidad y Financiamiento")
                 col_a1, col_a2, col_a3, col_a4 = st.columns(4)
                 with col_a1:
-                    auto_val = st.text_input("Modelo (ej. Sentra):")
-                    año_val = st.text_input("Año:")
+                    auto_val = st.text_input("Modelo (ej. Versa):")
+                    año_val = st.text_input("Año Unidad:")
                     precio_val = st.number_input(
                         "Precio Lista:", min_value=0.0, step=1000.0)
                 with col_a2:
@@ -113,25 +113,26 @@ with tab2:
                 st.divider()
 
                 # --- SECCIÓN 3: ADICIONALES Y TRÁMITES ---
-                st.subheader("🛠️ Adicionales, Gestoría y Toma")
+                st.subheader("🛠️ Adicionales y Trámites (Precios Agencia)")
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    garantia_ext = st.checkbox("Garantía Extendida")
-                    seguro_auto = st.checkbox("Seguro")
-                    kit_seguridad = st.checkbox("Kit de Seguridad")
+                    garantia_val = st.number_input(
+                        "Garantía Extendida $:", min_value=0.0)
+                    seguro_val = st.number_input("Seguro $:", min_value=0.0)
                 with c2:
-                    gestoria = st.checkbox("Gestoría Placas / Tenencia")
-                    verificacion = st.checkbox("Verificación")
-                    accesorios = st.checkbox("Accesorios")
+                    kit_val = st.number_input(
+                        "Kit de Seguridad $:", min_value=0.0)
+                    gestoria_val = st.number_input(
+                        "Gestoría Placas $:", min_value=0.0)
                 with c3:
-                    toma_auto = st.checkbox("Toma de Auto")
-                    precio_toma = st.number_input(
-                        "Precio de Toma:", min_value=0.0)
+                    verif_val = st.number_input(
+                        "Verificación $:", min_value=0.0)
+                    acc_val = st.number_input("Accesorios $:", min_value=0.0)
 
                 st.divider()
 
                 # --- SECCIÓN 4: AUTORIZACIONES Y DATOS SAT ---
-                st.subheader("✍️ Autorizaciones y Validación SAT")
+                st.subheader("✍️ Autorizaciones")
                 ca1, ca2 = st.columns(2)
                 with ca1:
                     gerente_semi = st.text_input(
@@ -153,33 +154,46 @@ with tab2:
                         st.error(
                             "❌ Por favor, selecciona un Tipo de Identificación.")
                     else:
-                        with st.spinner("Guardando expediente completo en Sheets..."):
+                        with st.spinner("Inyectando datos en Sheets..."):
+                            # Consolidación final de datos para el mapeo de 45/46 columnas
                             datos_validados.update({
-                                "Identificaciones": ident_sel, "EMISION": emis_sel, "FOLIO": folio_val,
-                                "Auto": auto_val, "AÑO": año_val, "Precio Auto": precio_val, "Color": color_val,
-                                "OCUPACION": ocupacion_val, "Pago Inicial": pago_ini_val, "Plazo": plazo_val,
-                                "Mensualidades": mensualidad_val, "Monto a Financiar": monto_fin_val,
-                                "FINANCIERA PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "NO",
-                                "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "NO",
-                                "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "NO",
-                                "KUNA": "SÍ" if "KUNA" in tipo_fin else "NO",
-                                "SICREA": "SÍ" if "SICREA" in tipo_fin else "NO",
-                                "OTRO": "SÍ" if "OTRO" in tipo_fin else "NO",
-                                "GARANTIA EXTENDIDA": "SÍ" if garantia_ext else "NO",
-                                "SEGURO": "SÍ" if seguro_auto else "NO",
-                                "KIT DE SEGURIDAD": "SÍ" if kit_seguridad else "NO",
-                                "GESTORIAPLACAS / TENENCIA": "SÍ" if gestoria else "NO",
-                                "VERIFICACION": "SÍ" if verificacion else "NO",
-                                "ACCESORIOS": "SÍ" if accesorios else "NO",
-                                "TOMA DE AUTO": "SÍ" if toma_auto else "NO",
-                                "PRECIO DE TOMA": precio_toma,
-                                "GERENTE DE AUTOS SEMINUEVOS": gerente_semi,
+                                # Documentación
+                                "Identificaciones": ident_sel,
+                                "EMISION": emis_sel,
+                                "FOLIO": folio_val,
+                                "OCUPACION": ocupacion_val,
+                                # Unidad y Venta
+                                "Auto": auto_val,
+                                "AÑO": año_val,
+                                "Precio Auto": precio_val,
+                                "Color": color_val,
+                                "Pago Inicial": pago_ini_val,
+                                "Plazo": plazo_val,
+                                "Mensualidades": mensualidad_val,
+                                "Monto a Financiar": monto_fin_val,
+                                # Canales de Venta (Vacío si no se selecciona)
+                                "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
+                                "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
+                                "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
+                                "KUNA": "SÍ" if "KUNA" in tipo_fin else "",
+                                "SICREA": "SÍ" if "SICREA" in tipo_fin else "",
+                                "OTRO": "SÍ" if "OTRO" in tipo_fin else "",
+                                # Adicionales (Montos Manuales)
+                                "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
+                                "SEGURO": seguro_val if seguro_val > 0 else "",
+                                "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
+                                "GESTORIAPLACAS / TENENCIA": gestoria_val if gestoria_val > 0 else "",
+                                "VERIFICACION": verif_val if verif_val > 0 else "",
+                                "ACCESORIOS": acc_val if acc_val > 0 else "",
+                                # Gerencia
+                                "GERENTE DE SEMINUEVOS": gerente_semi,
                                 "GERENTE DE VENTAS": gerente_ventas
                             })
+
                             id_gen = guardar_pedido_y_actualizar_t2(
                                 datos_validados)
                             st.success(
-                                f"✅ ¡Expediente {id_gen} registrado con éxito!")
+                                f"✅ Pedido {id_gen} registrado correctamente.")
                             st.balloons()
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
