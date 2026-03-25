@@ -51,27 +51,62 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
 
     # Mapeo de columnas
     mapeo = {
-        "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3,
-        "Segundo Apellido:": 4, "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7,
-        "Tipo de Vialidad:": 8, "Número Exterior:": 9, "Número Interior:": 10,
-        "Nombre de la Colonia:": 11, "Nombre de la Localidad:": 12,
-        "Nombre del Municipio o Demarcación Territorial:": 13,
-        "Nombre de la Entidad Federativa:": 14, "Código Postal:": 15,
-        "Correo Electrónico": 16, "Número Celular": 17,
+        # --- DATOS FISCALES / CONTACTO (Existentes) ---
+        "RFC:": 1,
+        "CURP:": 2,
+        "Nombre / Razón Social:": 3,
+        "Código Postal:": 4,
+        "Nombre de Vialidad (Calle):": 5,
+        "Número Exterior:": 6,
+        "Número Interior:": 7,
+        "Nombre de la Colonia:": 8,
+        "Nombre de la Localidad:": 9,
+        "Nombre del Municipio o Demarcación Territorial:": 10,
+        "Nombre de la Entidad Federativa:": 11,
+        "Entre Calle:": 12,
+        "Y Calle:": 13,
+        "Correo Electrónico": 14,
+        "Número Celular": 15,
+        "Régimen Fiscal:": 16,
+        "Fecha de Inicio de Operaciones:": 17,
 
-        # 🔥 NUEVAS COLUMNAS (Asegúrate de que correspondan a tu Sheets real)
+        # --- DOCUMENTACIÓN Y SEGUIMIENTO ---
         "Identificaciones": 18,
         "EMISION": 19,
         "FOLIO": 20,
-        "Auto": 21,
-        "Precio Auto": 22,
-        "Color": 23,
-        "Pago Inicial": 24,
-        "Plazo": 25,
-        "Mensualidades": 26,
-        "Monto a Financiar": 27
-    }
+        "ID_Seguimiento": 21,  # Generado automáticamente por tu lógica
 
+        # --- DATOS DE LA UNIDAD Y VENTA ---
+        "Auto": 22,
+        "AÑO": 23,
+        "Precio Auto": 24,
+        "Color": 25,
+        "OCUPACION": 26,
+        "Pago Inicial": 27,
+        "Plazo": 28,
+        "Mensualidades": 29,
+        "Monto a Financiar": 30,
+
+        # --- CANALES DE FINANCIAMIENTO ---
+        "FINANCIERA PROPIA": 31,
+        "CONTADO": 32,
+        "BANCARIO": 33,
+        "KUNA": 34,
+        "SICREA": 35,
+        "OTRO": 36,
+
+        # --- ADICIONALES Y GERENCIA ---
+        "GARANTIA EXTENDIDA": 37,
+        "SEGURO": 38,
+        "KIT DE SEGURIDAD": 39,
+        "GESTORIAPLACAS / TENENCIA": 40,
+        "VERIFICACION": 41,
+        "ACCESORIOS": 42,
+        "TOMA DE AUTO": 43,
+        "PRECIO DE TOMA": 44,
+        "GERENTE DE AUTOS SEMINUEVOS": 45,
+        "GERENTE DE VENTAS": 46
+    }
     # Inserción de datos
     for campo, valor in datos_constancia.items():
         if campo in mapeo:
