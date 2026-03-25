@@ -58,7 +58,7 @@ def procesar_texto_a_diccionario(file_stream):
         "Primer Apellido:": extraer_valor("Primer Apellido:"),
         "Segundo Apellido:": extraer_valor("Segundo Apellido:"),
 
-        # Domicilio (Columna Izquierda) - Usamos MITAD_PAGINA para no invadir la derecha
+        # Domicilio (Columna Izquierda)
         "Código Postal:": extraer_valor("Código Postal:", max_x=MITAD_PAGINA),
         "Nombre de Vialidad:": extraer_valor("Nombre de Vialidad:", max_x=MITAD_PAGINA),
         "Número Interior:": extraer_valor("Número Interior:", max_x=MITAD_PAGINA),
@@ -69,6 +69,7 @@ def procesar_texto_a_diccionario(file_stream):
         "Tipo de Vialidad:": extraer_valor("Tipo de Vialidad:"),
         "Número Exterior:": extraer_valor("Número Exterior:"),
         "Nombre de la Colonia:": extraer_valor("Nombre de la Colonia:"),
+        # ✅ CORRECCIÓN: Se ajustó el nombre de la llave para que coincida EXACTO con el mapeo de Sheets
         "Nombre del Municipio o Demarcación Territorial:": extraer_valor("Territorial:"),
     }
 
