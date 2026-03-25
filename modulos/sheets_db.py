@@ -57,7 +57,11 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Nombre de la Colonia:": 11, "Nombre de la Localidad:": 12,
         "Nombre del Municipio o Demarcación Territorial:": 13,
         "Nombre de la Entidad Federativa:": 14, "Código Postal:": 15,
-        "Correo Electrónico": 16, "Número Celular": 17
+        "Correo Electrónico": 16, "Número Celular": 17,
+
+        # 🔥 NUEVAS COLUMNAS (Asegúrate de que correspondan a tu Sheets real)
+        "Identificaciones": 18,
+        "EMISION": 19
     }
 
     # Inserción de datos

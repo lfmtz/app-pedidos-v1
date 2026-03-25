@@ -1,11 +1,31 @@
 import streamlit as st
 from modulos.sheets_db import buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2, inyectar_t2_existente, buscar_contacto_externo
 from modulos.pdf_generator import generar_solicitud_pdf
-# Importamos solo lo necesario para el procesamiento de archivos
 from modulos.ocr_processor import extraer_datos_memoria
 
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos", layout="wide")
 st.title("🏦 Sistema de Gestión de Créditos y Pedidos")
+
+# --- LISTAS DE OPCIONES PARA COMBOS ---
+OPCIONES_IDENTIFICACION = [
+    "SELECCIONE UNA OPCIÓN",
+    "CREDENCIAL PARA VOTAR",
+    "PASAPORTE",
+    "Tarjeta de Residente Temporal",
+    "Tarjeta de Residente Permanente",
+    "Tarjeta de Visitante por Razones Humanitarianas",
+    "CARTILLA MILITAR",
+    "CEDULA PROFESIONAL"
+]
+
+OPCIONES_EMISION = [
+    "SELECCIONE UNA OPCIÓN",
+    "INSTITUTO NACIONAL DE MIGRACION",
+    "INSTITUTO NACIONAL ELECTORAL",
+    "SECRETARIA DE RELACIONES EXTERIORES",
+    "SECRETARIA DE EDUCACION PUBLICA"
+]
 
 tab1, tab2 = st.tabs(["📄 Generar Solicitud", "🔍 Validar Constancia"])
 
@@ -21,7 +41,7 @@ with tab1:
                 cliente = buscar_cliente_por_rfc(rfc_input)
                 if cliente:
                     st.success(
-                        f"Cliente encontrado: {cliente.get('Nombre(s) acreditado', '')}")
+                        f"Cliente encontrado: {cliente.get('Nombre(s) accredited', '')}")
                     pdf_file = generar_solicitud_pdf(cliente)
                     st.download_button(
                         label="📥 Descargar Solicitud PDF",
@@ -35,7 +55,6 @@ with tab1:
             st.warning("Por favor ingrese un RFC.")
 
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
-# --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
@@ -45,31 +64,30 @@ with tab2:
     ])
 
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
-        archivo = st.file_uploader("Sube la Constancia de Situación Fiscal (PDF o Imagen)",
-                                   type=["pdf", "jpg", "png", "jpeg"])
+        archivo = st.file_uploader("Sube la Constancia de Situación Fiscal", type=[
+                                   "pdf", "jpg", "png", "jpeg"])
 
         if archivo is not None:
-            # ✅ PERSISTENCIA: Procesamos solo si no existen datos en sesión o se sube uno nuevo
+            # 1. PROCESAMIENTO CON PERSISTENCIA
             if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
                     is_pdf = archivo.name.lower().endswith('.pdf')
-                    # Guardamos el resultado directamente en el estado de la sesión
                     st.session_state.datos_extraidos = extraer_datos_memoria(
                         bytes_data, is_pdf)
 
-            # 🔍 DEBUG: Corregido para mostrar el diccionario real
-            with st.expander("🔍 DEBUG: Ver texto que el sistema leyó"):
+            # 2. CUADRO DE DEBUG
+            with st.expander("🔍 DEBUG: Ver datos extraídos"):
                 if st.session_state.datos_extraidos:
                     st.json(st.session_state.datos_extraidos)
                 else:
                     st.write("No se capturó texto")
 
-            # Si logramos extraer datos, procedemos con la validación e inyección
+            # 3. INTERFAZ DE VALIDACIÓN E INYECCIÓN
             if st.session_state.datos_extraidos:
                 datos = st.session_state.datos_extraidos
 
-                # 📡 LÓGICA DE BÚSQUEDA EXTERNA (Correo y Celular)
+                # Búsqueda externa de contacto
                 rfc_detectado = datos.get("RFC:", "")
                 if rfc_detectado and "Correo Electrónico" not in datos:
                     correo_ext, celular_ext = buscar_contacto_externo(
@@ -78,34 +96,54 @@ with tab2:
                     datos["Número Celular"] = celular_ext
 
                 st.divider()
-                st.subheader("Revisión de Datos Extraídos")
+                st.subheader("📋 Selección de Documentos y Validación")
 
-                # Formulario para validación manual
+                # --- SECCIÓN DE COMBOS ---
+                st.info("Seleccione la identificación oficial del cliente:")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    ident_sel = st.selectbox(
+                        "Identificaciones:", OPCIONES_IDENTIFICACION)
+                with col_c2:
+                    emis_sel = st.selectbox("EMISION:", OPCIONES_EMISION)
+
+                st.markdown("---")
+
+                # --- FORMULARIO DE DATOS ---
                 datos_validados = {}
                 col1, col2 = st.columns(2)
-
-                # Generamos los campos de texto basados en las llaves del extractor
                 for i, (k, v) in enumerate(datos.items()):
                     with col1 if i % 2 == 0 else col2:
-                        # Creamos el input y guardamos el valor validado
                         datos_validados[k] = st.text_input(
                             f"Validar {k}", value=v)
 
+                # --- BOTÓN FINAL DE CONFIRMACIÓN ---
                 if st.button("Confirmar y Generar Pedido"):
-                    with st.spinner("Guardando en Sheets y actualizando T2..."):
-                        # Inyectamos los datos validados por el usuario
-                        id_gen = guardar_pedido_y_actualizar_t2(
-                            datos_validados)
-                        st.success(f"✅ Datos guardados. ID Generado: {id_gen}")
-                        st.info(
-                            "La celda T2 en el Formato de Pedido ha sido actualizada.")
+                    # Validación de seguridad de los combos
+                    if ident_sel == "SELECCIONE UNA OPCIÓN" or emis_sel == "SELECCIONE UNA OPCIÓN":
+                        st.error(
+                            "❌ Error: Debes seleccionar una Identificación y su Emisor.")
+                    else:
+                        with st.spinner("Inyectando en Google Sheets..."):
+                            # Agregamos los combos al diccionario final
+                            datos_validados["Identificaciones"] = ident_sel
+                            datos_validados["EMISION"] = emis_sel
+
+                            id_gen = guardar_pedido_y_actualizar_t2(
+                                datos_validados)
+
+                            st.success(
+                                f"✅ ¡Pedido {id_gen} inyectado con éxito!")
+                            st.balloons()
+                            st.info(
+                                "La celda T2 del formato ha sido actualizada correctamente.")
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         id_existente = st.text_input(
-            "Ingrese el ID_Seguimiento existente (Ej. PED-005):")
+            "Ingrese el ID_Seguimiento (Ej. PED-005):")
         if st.button("Actualizar Formato (T2)"):
             if id_existente:
-                with st.spinner("Actualizando celda T2..."):
+                with st.spinner("Actualizando T2..."):
                     inyectar_t2_existente(id_existente.upper())
                     st.success(
                         f"✅ Celda T2 actualizada con {id_existente.upper()}.")
