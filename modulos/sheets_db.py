@@ -42,95 +42,42 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # 1. NORMALIZACIÓN AGRESIVA
-    def limpiar_texto(texto):
-        if not texto:
-            return ""
-        # Quitamos puntos, paréntesis y espacios, pasamos a MAYÚSCULAS
-        return str(texto).replace(":", "").replace("(", "").replace(")", "").strip().upper()
-
-    datos_limpios = {limpiar_texto(k): v for k, v in datos_constancia.items()}
-    datos_limpios["ID_SEGUIMIENTO"] = id_seguimiento
-
-    # 2. MAPEO SIN CARACTERES ESPECIALES
-    # --- MAPEO ALFABÉTICO CORREGIDO (SEGÚN IMÁGENES) ---
-    # Asegúrate de que las llaves (ej. "RFC:") coincidan exactamente con tu app.py
+    # 1. MAPEO BASADO EXACTAMENTE EN TU LISTA (Campos de Constancia)
+    # El número es la columna en Excel: 1=A, 2=B, etc.
     mapeo = {
-        # Sección A - J (Imagen 1)
-        "ID_Seguimiento": 1,        # Columna A
-        "Nombre (s):": 2,          # Columna B
-        "Primer Apellido:": 3,     # Columna C
-        "Segundo Apellido:": 4,    # Columna D
-        "RFC:": 5,                  # Columna E
-        "CURP:": 6,                 # Columna F
-        "Nombre de Vialidad (Calle):": 7,  # Columna G
-        "Tipo de Vialidad:": 8,    # Columna H
-        "Número Exterior:": 9,      # Columna I
-        "Número Interior:": 10,     # Columna J
-
-        # Sección K - V (Imagen 2)
-        "Nombre de la Colonia:": 11,  # Columna K
-        "Nombre de la Localidad:": 12,  # Columna L
-        "Nombre del Municipio o Demarcación Territorial:": 13,  # Columna M
-        "Nombre de la Entidad Federativa:": 14,  # Columna N
-        "Código Postal:": 15,       # Columna O
-        "Correo Electrónico": 16,   # Columna P
-        "Número Celular": 17,       # Columna Q
-        "Identificaciones": 18,     # Columna R
-        "EMISION": 19,               # Columna S
-        "FOLIO": 20,                 # Columna T
-        "Auto": 21,                  # Columna U
-        "Precio Auto": 22,           # Columna V
-
-        # Sección intermedia W - AM (No mostrada, asumimos correlativas)
-        "Color": 23,                 # Columna W
-        "Pago Inicial": 24,         # Columna X
-        "Plazo": 25,                 # Columna Y
-        "Mensualidades": 26,         # Columna Z
-        "Monto a Financiar": 27,    # Columna AA
-        "AÑO": 28,                  # Columna AB
-        "OCUPACION": 29,            # Columna AC
-        "FINANCIER PROPIA": 30,     # Columna AD
-        "CONTADO": 31,              # Columna AE
-        "BANCARIO": 32,             # Columna AF
-        "KUNA": 33,                  # Columna AG
-        "SICREA": 34,                # Columna AH
-        "OTRO": 35,                  # Columna AI
-        "GARANTIA EXTENDIDA": 36,   # Columna AJ
-        "SEGURO": 37,                # Columna AK
-        "KIT DE SEGURIDAD": 38,     # Columna AL
-        # Columna AM (Ojo: según imagen 3, AM es Verificación)
-        "VERIFICACION": 39,
-
-        # Sección AN - AU (Imagen 3)
-        "GESTORIAPLACAS / TENENCIA": 40,  # Columna AN (PLACAS / T)
-        "ACCESORIOS": 41,                # Columna AP
-        "TOMA DE AUTO": 42,              # Columna AQ
-        "PRECIO DE TOMA": 43,            # Columna AR
-        "GERENTE DE SEMINUEVOS": 44,     # Columna AS
-        "GERENTE DE VENTAS": 45          # Columna AT/AU
+        "ID_Seguimiento": 1,
+        "Nombre (s):": 2,
+        "Primer Apellido:": 3,
+        "Segundo Apellido:": 4,
+        "RFC:": 5,
+        "CURP:": 6,
+        "Nombre de Vialidad:": 7,
+        "Tipo de Vialidad:": 8,
+        "Número Exterior:": 9,
+        "Número Interior:": 10,
+        "Nombre de la Colonia:": 11,
+        "Nombre de la Localidad:": 12,
+        "Nombre del Municipio o Demarcación Territorial:": 13,
+        "Nombre de la Entidad Federativa:": 14,
+        "Código Postal:": 15
     }
 
+    # 2. Creamos la fila vacía de 45 celdas para evitar desplazamientos
     fila_a_inyectar = [""] * 45
 
-    # 3. REFUERZO PARA VIALIDAD (Si el OCR detecta variaciones, las unificamos en la columna 7)
-    posibles_vialidades = ["NOMBRE DE VIALIDAD",
-                           "VIALIDAD", "CALLE", "NOMBRE DE VIALIDAD CALLE"]
-    for p in posibles_vialidades:
-        if p in datos_limpios and datos_limpios[p]:
-            datos_limpios["NOMBRE DE VIALIDAD CALLE"] = datos_limpios[p]
-            break
+    # Agregamos el ID generado al diccionario de datos
+    datos_constancia["ID_Seguimiento"] = id_seguimiento
 
-    # 4. LLENADO DE FILA POR POSICIÓN
-    for campo, valor in datos_limpios.items():
+    # 3. Llenado de fila por coincidencia de nombre
+    for campo, valor in datos_constancia.items():
         if campo in mapeo:
             columna_idx = mapeo[campo] - 1
-            fila_a_inyectar[columna_idx] = str(valor).upper()
+            fila_a_inyectar[columna_idx] = str(valor).upper() if valor else ""
 
-    # 5. INYECCIÓN
+    # 4. Inyección en la hoja de datos
     sheet_pedido.append_row(fila_a_inyectar)
 
-    # Intento de actualización de T2 (con manejo de error por si la versión de gspread varía)
+    # 5. Actualización de celda T2 (ID de Seguimiento)
     try:
         sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
     except:
@@ -143,7 +90,10 @@ def inyectar_t2_existente(id_seguimiento):
     client = get_client()
     doc_pedido = client.open("FORMATO DE PEDIDO_26")
     sheet_formato = doc_pedido.worksheet("Pedido")
-    sheet_formato.update(range_name='T2', values=[[id_seguimiento]])
+    try:
+        sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
+    except:
+        sheet_formato.update('T2', [[id_seguimiento]])
 
 
 def buscar_contacto_externo(rfc_busqueda):
