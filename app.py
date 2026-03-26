@@ -131,7 +131,7 @@ with tab2:
 
                 st.divider()
 
-                # --- SECCIÓN 4: AUTORIZACIONES Y REVISIÓN SAT ---
+                # --- SECCIÓN 4: AUTORIZACIONES ---
                 st.subheader("✍️ Autorizaciones")
                 ca1, ca2 = st.columns(2)
                 with ca1:
@@ -140,14 +140,11 @@ with tab2:
                 with ca2:
                     gerente_ventas = st.text_input("Gerente de Ventas:")
 
+                # --- SECCIÓN 5: REVISIÓN SAT (DIRECCIÓN) ---
                 with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
                     datos_validados = {}
-                    # Aseguramos que la llave de vialidad sea consistente para la inyección
-                    if "Nombre de Vialidad (Calle):" not in datos and "Nombre de Vialidad:" in datos:
-                        datos["Nombre de Vialidad (Calle):"] = datos.pop(
-                            "Nombre de Vialidad:")
-
                     cols_sat = st.columns(2)
+                    # No modificamos llaves para mantener sincronía con sheets_db
                     for i, (k, v) in enumerate(datos.items()):
                         with cols_sat[i % 2]:
                             datos_validados[k] = st.text_input(
@@ -160,7 +157,7 @@ with tab2:
                             "❌ Por favor, selecciona un Tipo de Identificación.")
                     else:
                         with st.spinner("Inyectando datos en Sheets..."):
-                            # Consolidación final de datos con todas tus correcciones
+                            # Consolidación de todos los campos capturados
                             datos_validados.update({
                                 "Identificaciones": ident_sel,
                                 "EMISION": emis_sel,
@@ -174,21 +171,18 @@ with tab2:
                                 "Plazo": plazo_val,
                                 "Mensualidades": mensualidad_val,
                                 "Monto a Financiar": monto_fin_val,
-                                # Canales (Limpieza de celdas)
                                 "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
                                 "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
                                 "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
                                 "KUNA": "SÍ" if "KUNA" in tipo_fin else "",
                                 "SICREA": "SÍ" if "SICREA" in tipo_fin else "",
                                 "OTRO": "SÍ" if "OTRO" in tipo_fin else "",
-                                # Montos Adicionales
                                 "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
                                 "SEGURO": seguro_val if seguro_val > 0 else "",
                                 "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
                                 "GESTORIAPLACAS / TENENCIA": gestoria_val if gestoria_val > 0 else "",
                                 "VERIFICACION": verif_val if verif_val > 0 else "",
                                 "ACCESORIOS": acc_val if acc_val > 0 else "",
-                                # Toma de auto y Gerencia
                                 "TOMA DE AUTO": toma_auto_val,
                                 "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
                                 "GERENTE DE SEMINUEVOS": gerente_semi,

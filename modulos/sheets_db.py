@@ -42,8 +42,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # 1. MAPEO BASADO EXACTAMENTE EN TU LISTA (Campos de Constancia)
-    # El número es la columna en Excel: 1=A, 2=B, etc.
+    # --- MAPEO SOLICITADO (ESTRICTO) ---
     mapeo = {
         "ID_Seguimiento": 1,
         "Nombre (s):": 2,
@@ -51,7 +50,6 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Segundo Apellido:": 4,
         "RFC:": 5,
         "CURP:": 6,
-        # <--- CORREGIDO: Eliminamos "(Calle)" para que coincida con tu lista
         "Nombre de Vialidad:": 7,
         "Tipo de Vialidad:": 8,
         "Número Exterior:": 9,
@@ -63,22 +61,32 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Código Postal:": 15
     }
 
-    # 2. Creamos la fila vacía de 45 celdas para evitar desplazamientos
+    # Creamos la fila vacía de 45 espacios para asegurar que no se mueva nada
     fila_a_inyectar = [""] * 45
 
-    # Agregamos el ID generado al diccionario de datos
+    # Aseguramos el ID de seguimiento
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
-    # 3. Llenado de fila por coincidencia de nombre
+    # --- INYECCIÓN BASADA EN COINCIDENCIA DE LLAVE ---
     for campo, valor in datos_constancia.items():
+        # Verificamos si el campo existe en nuestro mapeo estricto
         if campo in mapeo:
             columna_idx = mapeo[campo] - 1
             fila_a_inyectar[columna_idx] = str(valor).upper() if valor else ""
 
-    # 4. Inyección en la hoja de datos
-    sheet_pedido.append_row(fila_a_inyectar)
+        # Refuerzo específico para Vialidad por si el OCR trae variaciones de nombre
+        # (Esto asegura la columna 7 aunque el nombre varíe un poco)
+        elif "Vialidad" in campo or "Calle" in campo:
+            if fila_a_inyectar[6] == "":  # Si la columna 7 sigue vacía
+                fila_a_inyectar[6] = str(valor).upper()
 
-    # 5. Actualización de celda T2 (ID de Seguimiento)
+    # Inserción en Sheets
+    try:
+        sheet_pedido.append_row(fila_a_inyectar)
+    except Exception as e:
+        st.error(f"Error en append_row: {e}")
+
+    # Actualización de T2
     try:
         sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
     except:
@@ -103,7 +111,6 @@ def buscar_contacto_externo(rfc_busqueda):
         sheet_base = client.open("SOL_CREDITO_ACTUAL_2026").sheet1
         celda = sheet_base.find(rfc_busqueda.strip().upper())
         fila_valores = sheet_base.row_values(celda.row)
-        # Ajuste de índices: 12=Celular, 13=Correo
         celular = fila_valores[12] if len(fila_valores) > 12 else ""
         correo = fila_valores[13] if len(fila_valores) > 13 else ""
         return correo, celular
