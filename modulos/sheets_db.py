@@ -51,6 +51,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "Segundo Apellido:": 4,
         "RFC:": 5,
         "CURP:": 6,
+        # <--- CORREGIDO: Eliminamos "(Calle)" para que coincida con tu lista
         "Nombre de Vialidad:": 7,
         "Tipo de Vialidad:": 8,
         "Número Exterior:": 9,
