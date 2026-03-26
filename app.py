@@ -180,7 +180,11 @@ with tab2:
                                 "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
                                 "SEGURO": seguro_val if seguro_val > 0 else "",
                                 "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
-                                "GESTORIAPLACAS / TENENCIA": gestoria_val if gestoria_val > 0 else "",
+
+                                # --- AQUÍ ESTÁ LA CORRECCIÓN ---
+                                "GESTORIA": gestoria_val if gestoria_val > 0 else "",
+                                "PLACAS / TENENCIA": 0.0,  # O el valor que corresponda si tienes un input para esto
+
                                 "VERIFICACION": verif_val if verif_val > 0 else "",
                                 "ACCESORIOS": acc_val if acc_val > 0 else "",
                                 "TOMA DE AUTO": toma_auto_val,
