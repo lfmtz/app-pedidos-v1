@@ -107,7 +107,7 @@ with tab2:
                     tipo_fin = st.multiselect("Canal de Venta:", [
                                               "FINANCIERA PROPIA", "CONTADO", "BANCARIO", "KUNA", "SICREA", "OTRO"])
 
-                # --- SECCIÓN 3: ADICIONALES Y TOMA (CORREGIDA) ---
+                # --- SECCIÓN 3: ADICIONALES Y TOMA ---
                 st.subheader("🛠️ Adicionales y Toma de Unidad")
                 c1, c2, c3 = st.columns(3)
                 with c1:
@@ -119,7 +119,6 @@ with tab2:
                 with c2:
                     kit_val = st.number_input(
                         "Kit de Seguridad $:", min_value=0.0)
-                    # Se usa para el campo GESTORIA
                     gestoria_val = st.number_input(
                         "Gestoría $:", min_value=0.0)
                     precio_toma_val = st.number_input(
@@ -129,7 +128,7 @@ with tab2:
                         "Verificación $:", min_value=0.0)
                     acc_val = st.number_input("Accesorios $:", min_value=0.0)
                     placas_val = st.number_input(
-                        "Placas / Tenencia $:", min_value=0.0)  # <--- NUEVO CAMPO
+                        "Placas / Tenencia $:", min_value=0.0)
 
                 st.divider()
 
@@ -158,7 +157,7 @@ with tab2:
                             "❌ Por favor, selecciona un Tipo de Identificación.")
                     else:
                         with st.spinner("Inyectando datos en Sheets..."):
-                            # Consolidación final con los nombres exactos para el mapeo 1-45
+                            # Consolidación final con llaves idénticas al mapeo de sheets_db.py
                             datos_validados.update({
                                 "Identificaciones": ident_sel,
                                 "EMISION": emis_sel,
@@ -181,9 +180,15 @@ with tab2:
                                 "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
                                 "SEGURO": seguro_val if seguro_val > 0 else "",
                                 "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
-                                "GESTORIAPLACAS / TENENCIA": placas_val if placas_val > 0 else "",  # Mapeo Col 39
+
+                                # --- CAMPOS SEPARADOS ---
+                                "GESTORIA": gestoria_val if gestoria_val > 0 else "",
+                                "PLACAS / TENENCIA": placas_val if placas_val > 0 else "",
+
                                 "VERIFICACION": verif_val if verif_val > 0 else "",
                                 "ACCESORIOS": acc_val if acc_val > 0 else "",
+
+                                # --- TOMA Y GERENCIAS ---
                                 "TOMA DE AUTO": toma_auto_val,
                                 "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
                                 "GERENTE DE SEMINUEVOS": gerente_semi,
