@@ -62,7 +62,6 @@ with tab2:
                 datos = st.session_state.datos_extraidos
                 rfc_detectado = datos.get("RFC:", "")
 
-                # Búsqueda de contactos externos si no vienen en el OCR
                 if rfc_detectado and "Correo Electrónico" not in datos:
                     correo_ext, celular_ext = buscar_contacto_externo(
                         rfc_detectado)
@@ -71,7 +70,7 @@ with tab2:
 
                 st.divider()
 
-                # --- SECCIÓN 1: IDENTIFICACIÓN Y DATOS PERSONALES ---
+                # --- SECCIÓN 1: IDENTIFICACIÓN Y OCUPACIÓN ---
                 st.subheader("📋 Documentación y Ocupación")
                 col_c1, col_c2, col_c3, col_c4 = st.columns(4)
                 with col_c1:
@@ -85,7 +84,7 @@ with tab2:
                 with col_c4:
                     ocupacion_val = st.text_input("Ocupación del Cliente:")
 
-                # --- SECCIÓN 2: DATOS DE LA UNIDAD Y VENTA ---
+                # --- SECCIÓN 2: UNIDAD Y VENTA ---
                 st.subheader("🚗 Detalles de la Unidad y Financiamiento")
                 col_a1, col_a2, col_a3, col_a4 = st.columns(4)
                 with col_a1:
@@ -108,7 +107,7 @@ with tab2:
                     tipo_fin = st.multiselect("Canal de Venta:", [
                                               "FINANCIERA PROPIA", "CONTADO", "BANCARIO", "KUNA", "SICREA", "OTRO"])
 
-                # --- SECCIÓN 3: ADICIONALES Y TOMA DE AUTO ---
+                # --- SECCIÓN 3: ADICIONALES Y TOMA (CORREGIDA) ---
                 st.subheader("🛠️ Adicionales y Toma de Unidad")
                 c1, c2, c3 = st.columns(3)
                 with c1:
@@ -120,14 +119,17 @@ with tab2:
                 with c2:
                     kit_val = st.number_input(
                         "Kit de Seguridad $:", min_value=0.0)
+                    # Se usa para el campo GESTORIA
                     gestoria_val = st.number_input(
-                        "Gestoría Placas $:", min_value=0.0)
+                        "Gestoría $:", min_value=0.0)
                     precio_toma_val = st.number_input(
                         "Precio de Toma $:", min_value=0.0)
                 with c3:
                     verif_val = st.number_input(
                         "Verificación $:", min_value=0.0)
                     acc_val = st.number_input("Accesorios $:", min_value=0.0)
+                    placas_val = st.number_input(
+                        "Placas / Tenencia $:", min_value=0.0)  # <--- NUEVO CAMPO
 
                 st.divider()
 
@@ -140,11 +142,10 @@ with tab2:
                 with ca2:
                     gerente_ventas = st.text_input("Gerente de Ventas:")
 
-                # --- SECCIÓN 5: REVISIÓN SAT (DIRECCIÓN) ---
+                # --- SECCIÓN 5: REVISIÓN SAT ---
                 with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
                     datos_validados = {}
                     cols_sat = st.columns(2)
-                    # No modificamos llaves para mantener sincronía con sheets_db
                     for i, (k, v) in enumerate(datos.items()):
                         with cols_sat[i % 2]:
                             datos_validados[k] = st.text_input(
@@ -157,7 +158,7 @@ with tab2:
                             "❌ Por favor, selecciona un Tipo de Identificación.")
                     else:
                         with st.spinner("Inyectando datos en Sheets..."):
-                            # Consolidación de todos los campos capturados
+                            # Consolidación final con los nombres exactos para el mapeo 1-45
                             datos_validados.update({
                                 "Identificaciones": ident_sel,
                                 "EMISION": emis_sel,
@@ -180,11 +181,7 @@ with tab2:
                                 "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
                                 "SEGURO": seguro_val if seguro_val > 0 else "",
                                 "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
-
-                                # --- AQUÍ ESTÁ LA CORRECCIÓN ---
-                                "GESTORIA": gestoria_val if gestoria_val > 0 else "",
-                                "PLACAS / TENENCIA": 0.0,  # O el valor que corresponda si tienes un input para esto
-
+                                "GESTORIAPLACAS / TENENCIA": placas_val if placas_val > 0 else "",  # Mapeo Col 39
                                 "VERIFICACION": verif_val if verif_val > 0 else "",
                                 "ACCESORIOS": acc_val if acc_val > 0 else "",
                                 "TOMA DE AUTO": toma_auto_val,
