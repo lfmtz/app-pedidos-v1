@@ -42,7 +42,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- MAPEO ACTUALIZADO (1 al 41) ---
+    # --- MAPEO CORREGIDO (Separación de Gestoría y Placas) ---
     mapeo = {
         "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3, "Segundo Apellido:": 4,
         "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7, "Tipo de Vialidad:": 8,
@@ -53,25 +53,20 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "EMISION": 19, "FOLIO": 20, "Auto": 21, "Precio Auto": 22,
         "Color": 23, "Pago Inicial": 24, "Plazo": 25, "Mensualidades": 26,
         "Monto a Financiar": 27, "AÑO": 28, "OCUPACION": 29,
+        "FINANCIER PROPIA": 30, "CONTADO": 31, "BANCARIO": 32, "KUNA": 33,
+        "SICREA": 34, "OTRO": 35,
+        "GARANTIA EXTENDIDA": 36, "SEGURO": 37, "KIT DE SEGURIDAD": 38,
 
-        # --- CANALES DE VENTA (30-35) ---
-        "FINANCIER PROPIA": 30,
-        "CONTADO": 31,
-        "BANCARIO": 32,
-        "KUNA": 33,
-        "SICREA": 34,
-        "OTRO": 35,
+        # --- SEPARACIÓN AQUÍ (39 y 40) ---
+        "GESTORIA": 39,
+        "PLACAS / TENENCIA": 40,
 
-        # --- ADICIONALES (36-41) ---
-        "GARANTIA EXTENDIDA": 36,
-        "SEGURO": 37,
-        "KIT DE SEGURIDAD": 38,
-        "GESTORIAPLACAS / TENENCIA": 39,
-        "VERIFICACION": 40,
-        "ACCESORIOS": 41
+        # Recorremos los que siguen
+        "VERIFICACION": 41,
+        "ACCESORIOS": 42
     }
 
-    fila_a_inyectar = [""] * 45
+    fila_a_inyectar = [""] * 46  # Aumentamos a 46 por la nueva columna
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
     for campo, valor in datos_constancia.items():
@@ -88,7 +83,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     try:
         sheet_pedido.append_row(fila_a_inyectar)
     except Exception as e:
-        st.error(f"Error al inyectar canales y adicionales: {e}")
+        st.error(f"Error al inyectar con campos separados: {e}")
 
     # Actualización T2
     try:
