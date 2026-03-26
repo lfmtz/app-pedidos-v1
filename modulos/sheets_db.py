@@ -42,7 +42,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- MAPEO CORREGIDO (Separación de Gestoría y Placas) ---
+    # --- MAPEO ACTUALIZADO (Columnas 1 a 46) ---
     mapeo = {
         "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3, "Segundo Apellido:": 4,
         "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7, "Tipo de Vialidad:": 8,
@@ -56,17 +56,18 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
         "FINANCIER PROPIA": 30, "CONTADO": 31, "BANCARIO": 32, "KUNA": 33,
         "SICREA": 34, "OTRO": 35,
         "GARANTIA EXTENDIDA": 36, "SEGURO": 37, "KIT DE SEGURIDAD": 38,
-
-        # --- SEPARACIÓN AQUÍ (39 y 40) ---
         "GESTORIA": 39,
         "PLACAS / TENENCIA": 40,
-
-        # Recorremos los que siguen
         "VERIFICACION": 41,
-        "ACCESORIOS": 42
+        "ACCESORIOS": 42,
+        # --- CAMPOS FALTANTES AGREGADOS ---
+        "TOMA DE AUTO": 43,
+        "PRECIO DE TOMA": 44,
+        "GERENTE DE SEMINUEVOS": 45,
+        "GERENTE DE VENTAS": 46
     }
 
-    fila_a_inyectar = [""] * 46  # Aumentamos a 46 por la nueva columna
+    fila_a_inyectar = [""] * 46
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
     for campo, valor in datos_constancia.items():
@@ -89,6 +90,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     try:
         sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
     except:
+        # Fallback para versiones antiguas de gspread
         sheet_formato.update('T2', [[id_seguimiento]])
 
     return id_seguimiento
