@@ -42,51 +42,45 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- MAPEO SOLICITADO (ESTRICTO) ---
+    # --- MAPEO ACTUALIZADO (1 al 22) ---
     mapeo = {
-        "ID_Seguimiento": 1,
-        "Nombre (s):": 2,
-        "Primer Apellido:": 3,
-        "Segundo Apellido:": 4,
-        "RFC:": 5,
-        "CURP:": 6,
-        "Nombre de Vialidad:": 7,
-        "Tipo de Vialidad:": 8,
-        "Número Exterior:": 9,
-        "Número Interior:": 10,
-        "Nombre de la Colonia:": 11,
-        "Nombre de la Localidad:": 12,
-        "Nombre del Municipio o Demarcación Territorial:": 13,
-        "Nombre de la Entidad Federativa:": 14,
-        "Código Postal:": 15
+        "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3, "Segundo Apellido:": 4,
+        "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7, "Tipo de Vialidad:": 8,
+        "Número Exterior:": 9, "Número Interior:": 10, "Nombre de la Colonia:": 11,
+        "Nombre de la Localidad:": 12, "Nombre del Municipio o Demarcación Territorial:": 13,
+        "Nombre de la Entidad Federativa:": 14, "Código Postal:": 15,
+
+        # --- NUEVOS CAMPOS A TESTEAR (16-22) ---
+        "Correo Electrónico": 16,
+        "Número Celular": 17,
+        "Identificaciones": 18,
+        "EMISION": 19,
+        "FOLIO": 20,
+        "Auto": 21,
+        "Precio Auto": 22
     }
 
-    # Creamos la fila vacía de 45 espacios para asegurar que no se mueva nada
+    # Mantenemos los 45 para no romper la estructura
     fila_a_inyectar = [""] * 45
-
-    # Aseguramos el ID de seguimiento
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
-    # --- INYECCIÓN BASADA EN COINCIDENCIA DE LLAVE ---
     for campo, valor in datos_constancia.items():
-        # Verificamos si el campo existe en nuestro mapeo estricto
         if campo in mapeo:
             columna_idx = mapeo[campo] - 1
             fila_a_inyectar[columna_idx] = str(valor).upper() if valor else ""
 
-        # Refuerzo específico para Vialidad por si el OCR trae variaciones de nombre
-        # (Esto asegura la columna 7 aunque el nombre varíe un poco)
+        # Refuerzo para Vialidad
         elif "Vialidad" in campo or "Calle" in campo:
-            if fila_a_inyectar[6] == "":  # Si la columna 7 sigue vacía
+            if fila_a_inyectar[6] == "":
                 fila_a_inyectar[6] = str(valor).upper()
 
-    # Inserción en Sheets
+    # Inyección
     try:
         sheet_pedido.append_row(fila_a_inyectar)
     except Exception as e:
-        st.error(f"Error en append_row: {e}")
+        st.error(f"Error al inyectar datos: {e}")
 
-    # Actualización de T2
+    # Actualización T2
     try:
         sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
     except:
