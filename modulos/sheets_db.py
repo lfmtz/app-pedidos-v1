@@ -42,25 +42,26 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     nueva_fila_num = len(todas_las_filas) + 1
     id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- MAPEO ACTUALIZADO (1 al 22) ---
+    # --- MAPEO ACTUALIZADO (1 al 29) ---
     mapeo = {
         "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3, "Segundo Apellido:": 4,
         "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7, "Tipo de Vialidad:": 8,
         "Número Exterior:": 9, "Número Interior:": 10, "Nombre de la Colonia:": 11,
         "Nombre de la Localidad:": 12, "Nombre del Municipio o Demarcación Territorial:": 13,
         "Nombre de la Entidad Federativa:": 14, "Código Postal:": 15,
+        "Correo Electrónico": 16, "Número Celular": 17, "Identificaciones": 18,
+        "EMISION": 19, "FOLIO": 20, "Auto": 21, "Precio Auto": 22,
 
-        # --- NUEVOS CAMPOS A TESTEAR (16-22) ---
-        "Correo Electrónico": 16,
-        "Número Celular": 17,
-        "Identificaciones": 18,
-        "EMISION": 19,
-        "FOLIO": 20,
-        "Auto": 21,
-        "Precio Auto": 22
+        # --- NUEVOS CAMPOS A TESTEAR (23-29) ---
+        "Color": 23,
+        "Pago Inicial": 24,
+        "Plazo": 25,
+        "Mensualidades": 26,
+        "Monto a Financiar": 27,
+        "AÑO": 28,
+        "OCUPACION": 29
     }
 
-    # Mantenemos los 45 para no romper la estructura
     fila_a_inyectar = [""] * 45
     datos_constancia["ID_Seguimiento"] = id_seguimiento
 
@@ -78,7 +79,7 @@ def guardar_pedido_y_actualizar_t2(datos_constancia):
     try:
         sheet_pedido.append_row(fila_a_inyectar)
     except Exception as e:
-        st.error(f"Error al inyectar datos: {e}")
+        st.error(f"Error al inyectar datos financieros: {e}")
 
     # Actualización T2
     try:
