@@ -1,5 +1,5 @@
 import streamlit as st
-from modulos.sheets_db import buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2, inyectar_t2_existente, buscar_contacto_externo
+from modulos.sheets_db import buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2, inyectar_t2_existente, buscar_contacto_externo, obtener_datos_pedido_por_id, obtener_url_impresion
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 
@@ -202,42 +202,30 @@ with tab2:
                             st.balloons()
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
-        st.subheader("🔍 Buscar y Editar Pedido")
-        col_busq1, col_busq2 = st.columns([3, 1])
+        st.subheader("🔍 Gestión de Pedidos Existentes")
 
-        with col_busq1:
-            id_existente = st.text_input(
-                "Ingrese el ID_Seguimiento (Ej. PED-005):")
+        id_existente = st.text_input(
+            "Ingrese el ID_Seguimiento (Ej. PED-005):")
 
-        if st.button("📂 Cargar Datos para Editar"):
+        if st.button("📂 Cargar Datos y Actualizar T2"):
             if id_existente:
-                with st.spinner("Buscando en la base de datos..."):
-                    from modulos.sheets_db import obtener_datos_pedido_por_id  # Importación local
-
-                    datos_viejos = obtener_datos_pedido_por_id(
+                with st.spinner("Sincronizando..."):
+                    # Ya no necesitamos el 'from...' aquí porque ya está arriba
+                    datos_recuperados = obtener_datos_pedido_por_id(
                         id_existente.upper())
 
-                    if datos_viejos:
-                        # CARGAMOS LOS DATOS EN EL ESTADO DE LA SESIÓN
-                        st.session_state.datos_extraidos = datos_viejos
-
-                        # ACTUALIZAMOS LA CELDA T2 DE UNA VEZ
+                    if datos_recuperados:
+                        st.session_state.datos_extraidos = datos_recuperados
                         inyectar_t2_existente(id_existente.upper())
-
-                        st.success(
-                            f"✅ Pedido {id_existente.upper()} cargado. Los campos de arriba se han actualizado.")
-                        st.rerun()  # Esto hace que los inputs muestren la info cargada
+                        st.success(f"✅ Pedido {id_existente.upper()} cargado.")
+                        st.rerun()
                     else:
-                        st.error("❌ No se encontró ningún registro con ese ID.")
-            else:
-                st.warning("Escribe un ID válido.")
+                        st.error("❌ El ID no existe.")
 
         st.divider()
 
-       # --- BOTONES DE IMPRESIÓN DIRECTA ---
+        # --- BOTONES DE IMPRESIÓN ---
         st.subheader("🖨️ Formatos para Impresión")
-        from modulos.sheets_db import obtener_url_impresion
-
         c_print1, c_print2 = st.columns(2)
         with c_print1:
             url_nissan = obtener_url_impresion("Pedido")
