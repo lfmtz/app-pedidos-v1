@@ -117,3 +117,77 @@ def buscar_contacto_externo(rfc_busqueda):
         return correo, celular
     except:
         return "", ""
+
+# Agrega esta función al final de tu archivo modulos/sheets_db.py
+
+
+def obtener_datos_pedido_por_id(id_seguimiento):
+    """Busca un pedido por ID y devuelve un diccionario con sus valores."""
+    try:
+        client = get_client()
+        sheet_pedido = client.open(
+            "FORMATO DE PEDIDO_26").worksheet("datos_pedidos")
+
+        # Buscamos el ID en la columna A (columna 1)
+        celda = sheet_pedido.find(id_seguimiento.strip().upper())
+        if not celda:
+            return None
+
+        # Obtenemos todos los valores de esa fila
+        valores_fila = sheet_pedido.row_values(celda.row)
+
+        # Definimos los encabezados tal cual los tienes en el Excel
+        encabezados = [
+            "ID_Seguimiento", "Nombre (s):", "Primer Apellido:", "Segundo Apellido:", "RFC:", "CURP:",
+            "Nombre de Vialidad:", "Tipo de Vialidad:", "Número Exterior:", "Número Interior:",
+            "Nombre de la Colonia:", "Nombre de la Localidad:", "Nombre del Municipio o Demarcación Territorial:",
+            "Nombre de la Entidad Federativa:", "Código Postal:", "Correo Electrónico", "Número Celular",
+            "Identificaciones", "EMISION", "FOLIO", "Auto", "Precio Auto", "Color", "Pago Inicial",
+            "Plazo", "Mensualidades", "Monto a Financiar", "AÑO", "OCUPACION", "FINANCIERA PROPIA",
+            "CONTADO", "BANCARIO", "KUNA", "OTRO", "SICREA", "GARANTIA EXTENDIDA", "SEGURO",
+            "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
+            "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS"
+        ]
+
+        # Creamos el diccionario emparejando encabezado con valor
+        datos_pedido = {}
+        for i, encabezado in enumerate(encabezados):
+            if i < len(valores_fila):
+                datos_pedido[encabezado] = valores_fila[i]
+            else:
+                datos_pedido[encabezado] = ""
+
+        return datos_pedido
+    except Exception as e:
+        st.error(f"Error al recuperar el pedido: {e}")
+        return None
+
+
+def obtener_url_impresion(hoja_nombre):
+    """Genera la URL para descargar el PDF del rango específico de la hoja."""
+    # ID del documento (lo sacas de la URL de tu navegador en Google Sheets)
+    # Pon aquí el ID largo de tu archivo FORMATO DE PEDIDO_26
+    spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
+
+    # GIDs de las hojas (debes buscarlos en la URL de cada pestaña: gid=XXXX)
+    gids = {
+        "Pedido": "211566386",  # Cambia por el GID real de la hoja Pedido
+        "pedido_stellantis": "1351176481"  # Cambia por el GID real de pedido_stellantis
+    }
+
+    gid = gids.get(hoja_nombre, "0")
+    rango = "A1:S85" if hoja_nombre == "Pedido" else "A1:S74"
+
+    # URL de exportación PDF con parámetros de formato profesional
+    url = (
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
+        f"format=pdf&gid={gid}&range={rango}"
+        "&size=letter"          # Tamaño Carta
+        "&portrait=true"        # Orientación Vertical
+        "&fitw=true"            # Ajustar al ancho de la página
+        "&gridlines=false"      # Ocultar líneas de división
+        "&printtitle=false"     # No imprimir nombre del archivo
+        "&sheetnames=false"     # No imprimir nombre de la pestaña
+        "&fzr=false"            # Evitar repetir filas inmovilizadas
+    )
+    return url

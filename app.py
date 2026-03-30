@@ -202,11 +202,49 @@ with tab2:
                             st.balloons()
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
-        id_existente = st.text_input(
-            "Ingrese el ID_Seguimiento (Ej. PED-005):")
-        if st.button("Actualizar Formato (T2)"):
+        st.subheader("🔍 Buscar y Editar Pedido")
+        col_busq1, col_busq2 = st.columns([3, 1])
+
+        with col_busq1:
+            id_existente = st.text_input(
+                "Ingrese el ID_Seguimiento (Ej. PED-005):")
+
+        if st.button("📂 Cargar Datos para Editar"):
             if id_existente:
-                with st.spinner("Actualizando T2..."):
-                    inyectar_t2_existente(id_existente.upper())
-                    st.success(
-                        f"✅ Celda T2 actualizada con {id_existente.upper()}.")
+                with st.spinner("Buscando en la base de datos..."):
+                    from modulos.sheets_db import obtener_datos_pedido_por_id  # Importación local
+
+                    datos_viejos = obtener_datos_pedido_por_id(
+                        id_existente.upper())
+
+                    if datos_viejos:
+                        # CARGAMOS LOS DATOS EN EL ESTADO DE LA SESIÓN
+                        st.session_state.datos_extraidos = datos_viejos
+
+                        # ACTUALIZAMOS LA CELDA T2 DE UNA VEZ
+                        inyectar_t2_existente(id_existente.upper())
+
+                        st.success(
+                            f"✅ Pedido {id_existente.upper()} cargado. Los campos de arriba se han actualizado.")
+                        st.rerun()  # Esto hace que los inputs muestren la info cargada
+                    else:
+                        st.error("❌ No se encontró ningún registro con ese ID.")
+            else:
+                st.warning("Escribe un ID válido.")
+
+        st.divider()
+
+       # --- BOTONES DE IMPRESIÓN DIRECTA ---
+        st.subheader("🖨️ Formatos para Impresión")
+        from modulos.sheets_db import obtener_url_impresion
+
+        c_print1, c_print2 = st.columns(2)
+        with c_print1:
+            url_nissan = obtener_url_impresion("Pedido")
+            st.link_button("📄 Imprimir Pedido Nissan",
+                           url_nissan, use_container_width=True)
+
+        with c_print2:
+            url_stellantis = obtener_url_impresion("pedido_stellantis")
+            st.link_button("📄 Imprimir Pedido Stellantis",
+                           url_stellantis, use_container_width=True)
