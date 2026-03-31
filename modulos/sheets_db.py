@@ -183,59 +183,53 @@ def obtener_datos_pedido_por_id(id_seguimiento):
         return None
 
 
-def obtener_url_impresion(hoja_nombre):
-    """Genera la URL para descargar el PDF del rango específico de la hoja."""
-    # ID del documento (lo sacas de la URL de tu navegador en Google Sheets)
-    # Pon aquí el ID largo de tu archivo FORMATO DE PEDIDO_26
+def obtener_url_impresion(pestana):
+    """ESTA FUNCIÓN ES SOLO PARA EL PEDIDO (Nissan/Stellantis)."""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GIDs de las hojas (debes buscarlos en la URL de cada pestaña: gid=XXXX)
+    # Mantenemos los GIDs originales de tus pedidos
     gids = {
-        "Pedido": "211566386",  # Cambia por el GID real de la hoja Pedido
-        "pedido_stellantis": "1351176481"  # Cambia por el GID real de pedido_stellantis
+        "Pedido": "0",
+        "pedido_stellantis": "2059378122"
     }
+    gid = gids.get(pestana, "0")
 
-    gid = gids.get(hoja_nombre, "0")
-    rango = "A1:S85" if hoja_nombre == "Pedido" else "A1:S74"
-
-    # URL de exportación PDF con parámetros de formato profesional
+    # URL ORIGINAL (Sin el comando 'select' para que no junte hojas)
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
-        f"format=pdf&gid={gid}&range={rango}"
-        "&size=letter"          # Tamaño Carta
-        "&portrait=true"        # Orientación Vertical
-        "&fitw=true"            # Ajustar al ancho de la página
-        "&gridlines=false"      # Ocultar líneas de división
-        "&printtitle=false"     # No imprimir nombre del archivo
-        "&sheetnames=false"     # No imprimir nombre de la pestaña
-        "&fzr=false"            # Evitar repetir filas inmovilizadas
+        f"format=pdf&gid={gid}"
+        "&size=letter"
+        "&portrait=true"
+        "&fitw=true"            # Solo ajusta el ancho de esa pestaña
+        "&gridlines=false"
+        "&printtitle=false"
+        "&sheetnames=false"
+        "&fzr=false"
     )
     return url
 
 
 def obtener_url_pld_completo():
-    """Genera un PDF uniendo las 3 pestañas de PLD con parámetros de escala forzados."""
+    """ESTA FUNCIÓN ES EXCLUSIVA PARA LAS 3 HOJAS DE PLD."""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    gid1 = "117614662"   # PLD_1
+    gid1 = "117614662"   # PLD_1 [cite: 518, 599]
     gid2 = "486590056"   # PLD_2
     gid3 = "1210346388"  # PLD_3
 
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         "format=pdf"
-        "&size=letter"           # Tamaño Carta
-        "&portrait=true"         # Vertical
-        "&scale=4"               # Ajustar al ancho (Fit to width)
-        "&top_margin=0.20"       # Márgenes muy delgados para que no se vea pequeño
+        "&size=letter"
+        "&portrait=true"
+        "&scale=4"               # Ajuste de escala para PLD
+        "&top_margin=0.20"
         "&bottom_margin=0.20"
         "&left_margin=0.20"
         "&right_margin=0.20"
         "&gridlines=false"
         "&printtitle=false"
         "&sheetnames=false"
-        "&fzr=false"
-        "&horizontal_alignment=CENTER"
-        f"&select={gid1},{gid2},{gid3}"
+        f"&select={gid1},{gid2},{gid3}"  # Solo une estas 3
     )
     return url
