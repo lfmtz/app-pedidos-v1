@@ -171,6 +171,19 @@ with tab2:
             tipo_fin = st.multiselect(
                 "Canal de Venta:", fin_opciones, default=seleccionados)
 
+        # --- Detalles de CFDI y depositos ---
+        with st.expander("Datos de Facturación y Pago", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                uso_cfdi = st.text_input(
+                    "Uso de CFDI:", value=datos.get("USO_CFDI", ""))
+            with col2:
+                met_pago = st.text_input(
+                    "Método de Pago:", value=datos.get("MET_PAGO", ""))
+            with col3:
+                anticipo = st.text_input(
+                    "Anticipo:", value=datos.get("ANTICIPO", ""))
+
         # --- SECCIÓN 3: ADICIONALES Y TOMA ---
         st.subheader("🛠️ Adicionales y Toma de Unidad")
         c1, c2, c3 = st.columns(3)
@@ -257,7 +270,10 @@ with tab2:
                         "TOMA DE AUTO": toma_auto_val,
                         "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
                         "GERENTE DE AUTOS SEMINUEVOS": gerente_semi,  # <--- Corregido con "AUTOS"
-                        "GERENTE DE VENTAS": gerente_ventas
+                        "GERENTE DE VENTAS": gerente_ventas,
+                        "USO_CFDI": uso_cfdi,
+                        "MET_PAGO": met_pago,
+                        "ANTICIPO": anticipo
                     })
 
                     # LLAMADA A LA FUNCIÓN (Enviamos el ID si existe)
