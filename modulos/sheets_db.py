@@ -38,11 +38,28 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     sheet_pedido = doc_pedido.worksheet("datos_pedidos")
     sheet_formato = doc_pedido.worksheet("Pedido")
 
+    # --- 1. DETERMINAR ID Y FILA ---
     todas_las_filas = sheet_pedido.get_all_values()
-    nueva_fila_num = len(todas_las_filas) + 1
-    id_seguimiento = f"PED-{nueva_fila_num:03d}"
 
-    # --- MAPEO ACTUALIZADO (Columnas 1 a 46) ---
+    if id_actualizar:
+        # Modo Edición: Buscar en qué fila está el ID (asumiendo que el ID está en la Columna A / índice 0)
+        id_seguimiento = id_actualizar
+        fila_destino = -1
+        for i, fila in enumerate(todas_las_filas):
+            if fila[0] == id_actualizar:
+                fila_destino = i + 1  # +1 porque Google Sheets empieza en 1
+                break
+
+        # Si por alguna razón no lo encuentra, hacemos un append al final
+        if fila_destino == -1:
+            fila_destino = len(todas_las_filas) + 1
+    else:
+        # Modo Nuevo: Generar ID nuevo
+        id_seguimiento = f"PED-{len(todas_las_filas) + 1:03d}"
+        fila_destino = len(todas_las_filas) + 1
+
+    # --- 2. MAPEO (Columnas 1 a 46) ---
+    # Asegúrate de que los nombres coincidan EXACTAMENTE con las llaves en app.py
     mapeo = {
         "ID_Seguimiento": 1, "Nombre (s):": 2, "Primer Apellido:": 3, "Segundo Apellido:": 4,
         "RFC:": 5, "CURP:": 6, "Nombre de Vialidad:": 7, "Tipo de Vialidad:": 8,
@@ -56,41 +73,42 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         "FINANCIER PROPIA": 30, "CONTADO": 31, "BANCARIO": 32, "KUNA": 33,
         "SICREA": 34, "OTRO": 35,
         "GARANTIA EXTENDIDA": 36, "SEGURO": 37, "KIT DE SEGURIDAD": 38,
-        "GESTORIA": 39,
-        "PLACAS / TENENCIA": 40,
-        "VERIFICACION": 41,
-        "ACCESORIOS": 42,
-        # --- CAMPOS FALTANTES AGREGADOS ---
-        "TOMA DE AUTO": 43,
-        "PRECIO DE TOMA": 44,
-        "GERENTE DE SEMINUEVOS": 45,
-        "GERENTE DE VENTAS": 46
+        "GESTORIA": 39, "PLACAS / TENENCIA": 40, "VERIFICACION": 41,
+        "ACCESORIOS": 42, "TOMA DE AUTO": 43, "PRECIO DE TOMA": 44,
+        "GERENTE DE AUTOS SEMINUEVOS": 45, "GERENTE DE VENTAS": 46
     }
 
     fila_a_inyectar = [""] * 46
-    datos_constancia["ID_Seguimiento"] = id_seguimiento
+    datos["ID_Seguimiento"] = id_seguimiento  # Corregido NameError
 
-    for campo, valor in datos_constancia.items():
+    for campo, valor in datos.items():
         if campo in mapeo:
             columna_idx = mapeo[campo] - 1
             fila_a_inyectar[columna_idx] = str(valor).upper() if valor else ""
 
-        # Refuerzo para Vialidad
+        # Refuerzo para Vialidad (por si acaso)
         elif "Vialidad" in campo or "Calle" in campo:
             if fila_a_inyectar[6] == "":
                 fila_a_inyectar[6] = str(valor).upper()
 
-    # Inyección
+    # --- 3. GUARDADO EN HOJA DE DATOS ---
     try:
-        sheet_pedido.append_row(fila_a_inyectar)
+        if id_actualizar and fila_destino <= len(todas_las_filas):
+            # ACTUALIZAR fila existente
+            # AT es la columna 46
+            rango_update = f"A{fila_destino}:AT{fila_destino}"
+            sheet_pedido.update(rango_update, [fila_a_inyectar])
+        else:
+            # INSERTAR fila nueva
+            sheet_pedido.append_row(fila_a_inyectar)
     except Exception as e:
-        st.error(f"Error al inyectar con campos separados: {e}")
+        import streamlit as st
+        st.error(f"Error al guardar datos: {e}")
 
-    # Actualización T2
+    # --- 4. ACTUALIZACIÓN CELDA T2 (Para impresión) ---
     try:
         sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
     except:
-        # Fallback para versiones antiguas de gspread
         sheet_formato.update('T2', [[id_seguimiento]])
 
     return id_seguimiento
