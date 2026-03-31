@@ -5,7 +5,7 @@ from modulos.sheets_db import (
     inyectar_t2_existente,
     buscar_contacto_externo,
     obtener_datos_pedido_por_id,
-    obtener_url_impresion  # <--- DEJA SOLO ESTA PARA IMPRESIÓN
+    obtener_url_impresion  # <--- ASEGÚRATE QUE SEA LA ÚLTIMA Y TENGA EL PARENTESIS
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -293,12 +293,10 @@ with tab2:
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")
-        cp1, cp2 = st.columns(2)  # Regresamos a 2 columnas
+        cp1, cp2 = st.columns(2)
         with cp1:
             st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
                 "Pedido"), use_container_width=True)
         with cp2:
             st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
                 "pedido_stellantis"), use_container_width=True)
-
-        # El botón de PLD queda fuera hasta que hagamos pruebas controladas
