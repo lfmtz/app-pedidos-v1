@@ -2,7 +2,7 @@ import streamlit as st
 from modulos.sheets_db import (
     buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2,
     inyectar_t2_existente, buscar_contacto_externo,
-    obtener_datos_pedido_por_id, obtener_url_impresion
+    obtener_datos_pedido_por_id, obtener_url_impresion, obtener_url_pld_completo
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -290,10 +290,13 @@ with tab2:
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")
-        cp1, cp2 = st.columns(2)
+        cp1, cp2, cp3 = st.columns(3)
         with cp1:
             st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
                 "Pedido"), use_container_width=True)
         with cp2:
             st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
                 "pedido_stellantis"), use_container_width=True)
+        with cp3:
+            st.link_button("🛡️ Imprimir Formatos PLD",
+                           obtener_url_pld_completo(), use_container_width=True)

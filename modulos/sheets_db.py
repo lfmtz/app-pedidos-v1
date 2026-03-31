@@ -211,3 +211,25 @@ def obtener_url_impresion(hoja_nombre):
         "&fzr=false"            # Evitar repetir filas inmovilizadas
     )
     return url
+
+
+def obtener_url_pld_completo():
+    """Genera la URL para descargar las 3 hojas de la pestaña PLD en un solo PDF."""
+    spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
+
+    # GID de la pestaña PLD (Asegúrate de que este sea el GID real de esa pestaña)
+    gid_pld = "117614662"
+
+    url = (
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
+        f"format=pdf&gid={gid_pld}"
+        "&size=letter"          # Tamaño Carta
+        "&portrait=true"        # Vertical
+        "&fitw=true"            # Ajustar al ancho (esto une las secciones)
+        "&gridlines=false"      # Sin líneas de Excel
+        "&printtitle=false"
+        "&sheetnames=false"
+        "&fzr=false"
+        "&horizontal_alignment=CENTER"  # Centrar contenido
+    )
+    return url
