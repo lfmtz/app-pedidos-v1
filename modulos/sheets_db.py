@@ -32,7 +32,7 @@ def buscar_cliente_por_rfc(rfc):
     return None
 
 
-def guardar_pedido_y_actualizar_t2(datos_constancia):
+def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     client = get_client()
     doc_pedido = client.open("FORMATO DE PEDIDO_26")
     sheet_pedido = doc_pedido.worksheet("datos_pedidos")
