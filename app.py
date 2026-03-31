@@ -49,17 +49,34 @@ with tab1:
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
-    # 1. Definimos la fuente de datos (Session State)
-    datos = st.session_state.get("datos_extraidos", {})
+    # 1. Botón de reset en la barra lateral (opcional pero muy útil)
+    if st.sidebar.button("♻️ Limpiar Formulario / Nuevo Registro"):
+        st.session_state.datos_extraidos = {}
+        st.rerun()
 
+    # 2. El Radio Button define la acción actual
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
                              "Opción A: Nuevo Cliente (Subir Constancia)",
                              "Opción B: Cliente Existente (Inyectar ID en T2)"])
 
+    # 3. LÓGICA DE AUTO-LIMPIEZA:
+    # Si el usuario selecciona "Opción A", pero en la memoria hay un ID de la "Opción B",
+    # limpiamos todo para que el formulario aparezca vacío y listo para un cliente nuevo.
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
-        archivo = st.file_uploader("Sube la Constancia de Situación Fiscal", type=[
-                                   "pdf", "jpg", "png", "jpeg"])
+        if "ID_Seguimiento" in st.session_state.get("datos_extraidos", {}):
+            st.session_state.datos_extraidos = {}
+            st.rerun()
+
+    # 4. Ahora sí, obtenemos los datos de la memoria (vacíos o con info)
+    datos = st.session_state.get("datos_extraidos", {})
+
+    # --- INICIO DE BLOQUES DE OPCIÓN ---
+    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
+        archivo = st.file_uploader("Sube la Constancia de Situación Fiscal",
+                                   type=["pdf", "jpg", "png", "jpeg"])
+
         if archivo is not None:
+            # Si no hay datos o si presionan "Reprocesar" en el sidebar
             if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
@@ -81,6 +98,7 @@ with tab2:
                             id_existente.upper())
                         if datos_rec:
                             st.session_state.datos_extraidos = datos_rec
+                            # Inyectar el ID en T2 del Excel
                             inyectar_t2_existente(id_existente.upper())
                             st.rerun()
                         else:
@@ -88,7 +106,8 @@ with tab2:
 
     # --- FORMULARIO DINÁMICO ---
     # Si hay datos (de la opción A o B), mostramos el formulario
-    if datos:
+    # if datos:
+    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)" or datos:
         st.divider()
         # Buscar contacto si es nuevo cliente y tenemos RFC
         rfc_detectado = datos.get("RFC:", "")
@@ -203,11 +222,14 @@ with tab2:
         # --- BOTÓN DE CIERRE ---
         if st.button("Confirmar y Guardar Cambios"):
             if ident_sel == "SELECCIONE UNA OPCIÓN":
-                st.error("❌ Selecciona una Identificación.")
+                st.error("❌ Por favor, selecciona un Tipo de Identificación.")
             else:
+                # DETECTAR SI ES EDICIÓN:
+                # Si 'datos' tiene 'ID_Seguimiento', significa que cargamos uno existente.
+                id_a_editar = datos.get("ID_Seguimiento")
+
                 with st.spinner("Guardando en Sheets..."):
-                    # Consolidar todo lo editado
-                    # Empezamos con los datos del SAT
+                    # Consolidación final con llaves idénticas al mapeo
                     datos_finales = {**datos_validados}
                     datos_finales.update({
                         "Identificaciones": ident_sel, "EMISION": emis_sel, "FOLIO": folio_val,
@@ -229,12 +251,21 @@ with tab2:
                         "ACCESORIOS": acc_val if acc_val > 0 else "",
                         "TOMA DE AUTO": toma_auto_val,
                         "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
-                        "GERENTE DE SEMINUEVOS": gerente_semi,
+                        "GERENTE DE AUTOS SEMINUEVOS": gerente_semi,  # <--- Corregido con "AUTOS"
                         "GERENTE DE VENTAS": gerente_ventas
                     })
 
-                    id_gen = guardar_pedido_y_actualizar_t2(datos_finales)
-                    st.success(f"✅ Pedido {id_gen} guardado correctamente.")
+                    # LLAMADA A LA FUNCIÓN (Enviamos el ID si existe)
+                    # Nota: Debes ajustar tu función en sheets_db.py para que acepte este segundo parámetro
+                    id_gen = guardar_pedido_y_actualizar_t2(
+                        datos_finales, id_actualizar=id_a_editar)
+
+                    if id_a_editar:
+                        st.success(
+                            f"✅ Pedido {id_a_editar} ACTUALIZADO correctamente.")
+                    else:
+                        st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
+
                     st.balloons()
 
         st.divider()
