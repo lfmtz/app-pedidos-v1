@@ -213,3 +213,33 @@ def obtener_url_impresion(pestana):
         "&fzr=false"                # Sin repetir filas congeladas
     )
     return url
+
+
+def obtener_url_pld(parte):
+    """
+    Genera el link de impresión individual para las 3 partes del PLD.
+    """
+    spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
+
+    # GIDs que me pasaste para cada parte
+    gids = {
+        "PLD_1": "117614662",
+        "PLD_2": "486590056",
+        "PLD_3": "1210346388"
+    }
+
+    gid = gids.get(parte)
+
+    # URL limpia para una sola hoja
+    url = (
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
+        f"format=pdf&gid={gid}"
+        "&size=letter"
+        "&portrait=true"
+        "&fitw=true"
+        "&gridlines=false"
+        "&printtitle=false"
+        "&sheetnames=false"
+        "&fzr=false"
+    )
+    return url
