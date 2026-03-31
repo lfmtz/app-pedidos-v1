@@ -1,8 +1,12 @@
 import streamlit as st
 from modulos.sheets_db import (
-    buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2,
-    inyectar_t2_existente, buscar_contacto_externo,
-    obtener_datos_pedido_por_id, obtener_url_impresion, obtener_url_pld_completo
+    buscar_cliente_por_rfc,
+    guardar_pedido_y_actualizar_t2,
+    inyectar_t2_existente,
+    buscar_contacto_externo,
+    obtener_datos_pedido_por_id,
+    obtener_url_impresion,
+    obtener_url_pld_completo
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
