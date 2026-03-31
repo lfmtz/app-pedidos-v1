@@ -259,7 +259,6 @@ with tab2:
                     # Nota: Debes ajustar tu función en sheets_db.py para que acepte este segundo parámetro
                     id_gen = guardar_pedido_y_actualizar_t2(
                         datos_finales, id_actualizar=id_a_editar)
-
                     if id_a_editar:
                         st.success(
                             f"✅ Pedido {id_a_editar} ACTUALIZADO correctamente.")
