@@ -177,17 +177,22 @@ with tab2:
         ca1, ca2 = st.columns(2)
         with ca1:
             gerente_semi = st.text_input(
-                "Gerente de Autos Seminuevos:", value=datos.get("GERENTE DE SEMINUEVOS", ""))
+                "Gerente de Autos Seminuevos:",
+                value=datos.get("GERENTE DE AUTOS SEMINUEVOS",
+                                "")  # <--- Agregamos "AUTOS"
+            )
         with ca2:
             gerente_ventas = st.text_input(
-                "Gerente de Ventas:", value=datos.get("GERENTE DE VENTAS", ""))
+                "Gerente de Ventas:",
+                value=datos.get("GERENTE DE VENTAS", "")
+            )
 
         # --- SECCIÓN 5: REVISIÓN SAT ---
         with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
             datos_validados = {}
             # Filtrar llaves que no son de formulario interno
             llaves_sat = [k for k in datos.keys() if k not in fin_opciones + ["ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO", "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades", "Monto a Financiar",
-                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones"]]
+                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones"]]
 
             cols_sat = st.columns(2)
             for i, k in enumerate(llaves_sat):
