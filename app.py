@@ -1,5 +1,9 @@
 import streamlit as st
-from modulos.sheets_db import buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2, inyectar_t2_existente, buscar_contacto_externo, obtener_datos_pedido_por_id, obtener_url_impresion
+from modulos.sheets_db import (
+    buscar_cliente_por_rfc, guardar_pedido_y_actualizar_t2,
+    inyectar_t2_existente, buscar_contacto_externo,
+    obtener_datos_pedido_por_id, obtener_url_impresion
+)
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 
@@ -44,195 +48,196 @@ with tab1:
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
+
+    # 1. Definimos la fuente de datos (Session State)
+    datos = st.session_state.get("datos_extraidos", {})
+
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
-                             "Opción A: Nuevo Cliente (Subir Constancia)", "Opción B: Cliente Existente (Inyectar ID en T2)"])
+                             "Opción A: Nuevo Cliente (Subir Constancia)",
+                             "Opción B: Cliente Existente (Inyectar ID en T2)"])
 
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         archivo = st.file_uploader("Sube la Constancia de Situación Fiscal", type=[
                                    "pdf", "jpg", "png", "jpeg"])
-
         if archivo is not None:
             if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
                     st.session_state.datos_extraidos = extraer_datos_memoria(
                         bytes_data, archivo.name.lower().endswith('.pdf'))
-
-            if st.session_state.datos_extraidos:
-                datos = st.session_state.datos_extraidos
-                rfc_detectado = datos.get("RFC:", "")
-
-                if rfc_detectado and "Correo Electrónico" not in datos:
-                    correo_ext, celular_ext = buscar_contacto_externo(
-                        rfc_detectado)
-                    datos["Correo Electrónico"] = correo_ext
-                    datos["Número Celular"] = celular_ext
-
-                st.divider()
-
-                # --- SECCIÓN 1: IDENTIFICACIÓN Y OCUPACIÓN ---
-                st.subheader("📋 Documentación y Ocupación")
-                col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                with col_c1:
-                    ident_sel = st.selectbox(
-                        "Tipo Identificación:", OPCIONES_IDENTIFICACION)
-                with col_c2:
-                    emis_sel = st.selectbox(
-                        "Institución Emisora:", OPCIONES_EMISION)
-                with col_c3:
-                    folio_val = st.text_input("Folio ID (Elector/Pasaporte):")
-                with col_c4:
-                    ocupacion_val = st.text_input("Ocupación del Cliente:")
-
-                # --- SECCIÓN 2: UNIDAD Y VENTA ---
-                st.subheader("🚗 Detalles de la Unidad y Financiamiento")
-                col_a1, col_a2, col_a3, col_a4 = st.columns(4)
-                with col_a1:
-                    auto_val = st.text_input("Modelo (ej. Versa):")
-                    año_val = st.text_input("Año Unidad:")
-                    precio_val = st.number_input(
-                        "Precio Lista:", min_value=0.0, step=1000.0)
-                with col_a2:
-                    color_val = st.text_input("Color:")
-                    pago_ini_val = st.number_input(
-                        "Pago Inicial (Enganche):", min_value=0.0, step=1000.0)
-                    monto_fin_val = st.number_input(
-                        "Monto a Financiar:", min_value=0.0, step=1000.0)
-                with col_a3:
-                    plazo_val = st.selectbox(
-                        "Plazo:", ["12", "18", "24", "36", "48", "60", "72", "CONTADO"])
-                    mensualidad_val = st.number_input(
-                        "Mensualidad:", min_value=0.0, step=100.0)
-                with col_a4:
-                    tipo_fin = st.multiselect("Canal de Venta:", [
-                                              "FINANCIERA PROPIA", "CONTADO", "BANCARIO", "KUNA", "SICREA", "OTRO"])
-
-                # --- SECCIÓN 3: ADICIONALES Y TOMA ---
-                st.subheader("🛠️ Adicionales y Toma de Unidad")
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    garantia_val = st.number_input(
-                        "Garantía Extendida $:", min_value=0.0)
-                    seguro_val = st.number_input("Seguro $:", min_value=0.0)
-                    toma_auto_val = st.text_input(
-                        "Unidad que se toma (Modelo/Año):")
-                with c2:
-                    kit_val = st.number_input(
-                        "Kit de Seguridad $:", min_value=0.0)
-                    gestoria_val = st.number_input(
-                        "Gestoría $:", min_value=0.0)
-                    precio_toma_val = st.number_input(
-                        "Precio de Toma $:", min_value=0.0)
-                with c3:
-                    verif_val = st.number_input(
-                        "Verificación $:", min_value=0.0)
-                    acc_val = st.number_input("Accesorios $:", min_value=0.0)
-                    placas_val = st.number_input(
-                        "Placas / Tenencia $:", min_value=0.0)
-
-                st.divider()
-
-                # --- SECCIÓN 4: AUTORIZACIONES ---
-                st.subheader("✍️ Autorizaciones")
-                ca1, ca2 = st.columns(2)
-                with ca1:
-                    gerente_semi = st.text_input(
-                        "Gerente de Autos Seminuevos:")
-                with ca2:
-                    gerente_ventas = st.text_input("Gerente de Ventas:")
-
-                # --- SECCIÓN 5: REVISIÓN SAT ---
-                with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
-                    datos_validados = {}
-                    cols_sat = st.columns(2)
-                    for i, (k, v) in enumerate(datos.items()):
-                        with cols_sat[i % 2]:
-                            datos_validados[k] = st.text_input(
-                                f"Validar {k}", value=v)
-
-                # --- BOTÓN DE CIERRE ---
-                if st.button("Confirmar y Generar Pedido"):
-                    if ident_sel == "SELECCIONE UNA OPCIÓN":
-                        st.error(
-                            "❌ Por favor, selecciona un Tipo de Identificación.")
-                    else:
-                        with st.spinner("Inyectando datos en Sheets..."):
-                            # Consolidación final con llaves idénticas al mapeo de sheets_db.py
-                            datos_validados.update({
-                                "Identificaciones": ident_sel,
-                                "EMISION": emis_sel,
-                                "FOLIO": folio_val,
-                                "OCUPACION": ocupacion_val,
-                                "Auto": auto_val,
-                                "AÑO": año_val,
-                                "Precio Auto": precio_val,
-                                "Color": color_val,
-                                "Pago Inicial": pago_ini_val,
-                                "Plazo": plazo_val,
-                                "Mensualidades": mensualidad_val,
-                                "Monto a Financiar": monto_fin_val,
-                                "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
-                                "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
-                                "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
-                                "KUNA": "SÍ" if "KUNA" in tipo_fin else "",
-                                "SICREA": "SÍ" if "SICREA" in tipo_fin else "",
-                                "OTRO": "SÍ" if "OTRO" in tipo_fin else "",
-                                "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
-                                "SEGURO": seguro_val if seguro_val > 0 else "",
-                                "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
-
-                                # --- CAMPOS SEPARADOS ---
-                                "GESTORIA": gestoria_val if gestoria_val > 0 else "",
-                                "PLACAS / TENENCIA": placas_val if placas_val > 0 else "",
-
-                                "VERIFICACION": verif_val if verif_val > 0 else "",
-                                "ACCESORIOS": acc_val if acc_val > 0 else "",
-
-                                # --- TOMA Y GERENCIAS ---
-                                "TOMA DE AUTO": toma_auto_val,
-                                "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
-                                "GERENTE DE SEMINUEVOS": gerente_semi,
-                                "GERENTE DE VENTAS": gerente_ventas
-                            })
-
-                            id_gen = guardar_pedido_y_actualizar_t2(
-                                datos_validados)
-                            st.success(
-                                f"✅ Pedido {id_gen} registrado correctamente.")
-                            st.balloons()
+                    st.rerun()
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         st.subheader("🔍 Gestión de Pedidos Existentes")
+        col_b1, col_b2 = st.columns([3, 1])
+        with col_b1:
+            id_existente = st.text_input(
+                "Ingrese el ID_Seguimiento (Ej. PED-005):")
+        with col_b2:
+            if st.button("📂 Cargar Datos", use_container_width=True):
+                if id_existente:
+                    with st.spinner("Sincronizando..."):
+                        datos_rec = obtener_datos_pedido_por_id(
+                            id_existente.upper())
+                        if datos_rec:
+                            st.session_state.datos_extraidos = datos_rec
+                            inyectar_t2_existente(id_existente.upper())
+                            st.rerun()
+                        else:
+                            st.error("❌ ID no encontrado.")
 
-        id_existente = st.text_input(
-            "Ingrese el ID_Seguimiento (Ej. PED-005):")
+    # --- FORMULARIO DINÁMICO ---
+    # Si hay datos (de la opción A o B), mostramos el formulario
+    if datos:
+        st.divider()
+        # Buscar contacto si es nuevo cliente y tenemos RFC
+        rfc_detectado = datos.get("RFC:", "")
+        if rfc_detectado and "Correo Electrónico" not in datos:
+            correo_ext, celular_ext = buscar_contacto_externo(rfc_detectado)
+            datos["Correo Electrónico"] = correo_ext
+            datos["Número Celular"] = celular_ext
 
-        if st.button("📂 Cargar Datos y Actualizar T2"):
-            if id_existente:
-                with st.spinner("Sincronizando..."):
-                    # Ya no necesitamos el 'from...' aquí porque ya está arriba
-                    datos_recuperados = obtener_datos_pedido_por_id(
-                        id_existente.upper())
+        # --- SECCIÓN 1: IDENTIFICACIÓN Y OCUPACIÓN ---
+        st.subheader("📋 Documentación y Ocupación")
+        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+        with col_c1:
+            ident_idx = OPCIONES_IDENTIFICACION.index(datos.get("Identificaciones")) if datos.get(
+                "Identificaciones") in OPCIONES_IDENTIFICACION else 0
+            ident_sel = st.selectbox(
+                "Tipo Identificación:", OPCIONES_IDENTIFICACION, index=ident_idx)
+        with col_c2:
+            emis_idx = OPCIONES_EMISION.index(datos.get("EMISION")) if datos.get(
+                "EMISION") in OPCIONES_EMISION else 0
+            emis_sel = st.selectbox(
+                "Institución Emisora:", OPCIONES_EMISION, index=emis_idx)
+        with col_c3:
+            folio_val = st.text_input(
+                "Folio ID:", value=datos.get("FOLIO", ""))
+        with col_c4:
+            ocupacion_val = st.text_input(
+                "Ocupación:", value=datos.get("OCUPACION", ""))
 
-                    if datos_recuperados:
-                        st.session_state.datos_extraidos = datos_recuperados
-                        inyectar_t2_existente(id_existente.upper())
-                        st.success(f"✅ Pedido {id_existente.upper()} cargado.")
-                        st.rerun()
-                    else:
-                        st.error("❌ El ID no existe.")
+        # --- SECCIÓN 2: UNIDAD Y VENTA ---
+        st.subheader("🚗 Detalles de la Unidad y Financiamiento")
+        col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+        with col_a1:
+            auto_val = st.text_input("Modelo:", value=datos.get("Auto", ""))
+            año_val = st.text_input("Año:", value=datos.get("AÑO", ""))
+            precio_val = st.number_input("Precio Lista:", value=float(datos.get(
+                "Precio Auto", 0.0)) if datos.get("Precio Auto") else 0.0, step=1000.0)
+        with col_a2:
+            color_val = st.text_input("Color:", value=datos.get("Color", ""))
+            pago_ini_val = st.number_input("Enganche:", value=float(datos.get(
+                "Pago Inicial", 0.0)) if datos.get("Pago Inicial") else 0.0, step=1000.0)
+            monto_fin_val = st.number_input("Monto a Financiar:", value=float(datos.get(
+                "Monto a Financiar", 0.0)) if datos.get("Monto a Financiar") else 0.0, step=1000.0)
+        with col_a3:
+            plazos = ["12", "18", "24", "36", "48", "60", "72", "CONTADO"]
+            p_idx = plazos.index(str(datos.get("Plazo"))) if str(
+                datos.get("Plazo")) in plazos else 0
+            plazo_val = st.selectbox("Plazo:", plazos, index=p_idx)
+            mensualidad_val = st.number_input("Mensualidad:", value=float(datos.get(
+                "Mensualidades", 0.0)) if datos.get("Mensualidades") else 0.0, step=100.0)
+        with col_a4:
+            fin_opciones = ["FINANCIERA PROPIA", "CONTADO",
+                            "BANCARIO", "KUNA", "SICREA", "OTRO"]
+            # Pre-seleccionar canales
+            seleccionados = [
+                opt for opt in fin_opciones if datos.get(opt) == "SÍ"]
+            tipo_fin = st.multiselect(
+                "Canal de Venta:", fin_opciones, default=seleccionados)
+
+        # --- SECCIÓN 3: ADICIONALES Y TOMA ---
+        st.subheader("🛠️ Adicionales y Toma de Unidad")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            garantia_val = st.number_input("Garantía Extendida $:", value=float(datos.get(
+                "GARANTIA EXTENDIDA", 0.0)) if datos.get("GARANTIA EXTENDIDA") else 0.0)
+            seguro_val = st.number_input("Seguro $:", value=float(
+                datos.get("SEGURO", 0.0)) if datos.get("SEGURO") else 0.0)
+            toma_auto_val = st.text_input(
+                "Unidad que se toma:", value=datos.get("TOMA DE AUTO", ""))
+        with c2:
+            kit_val = st.number_input("Kit de Seguridad $:", value=float(
+                datos.get("KIT DE SEGURIDAD", 0.0)) if datos.get("KIT DE SEGURIDAD") else 0.0)
+            gestoria_val = st.number_input("Gestoría $:", value=float(
+                datos.get("GESTORIA", 0.0)) if datos.get("GESTORIA") else 0.0)
+            precio_toma_val = st.number_input("Precio de Toma $:", value=float(
+                datos.get("PRECIO DE TOMA", 0.0)) if datos.get("PRECIO DE TOMA") else 0.0)
+        with c3:
+            verif_val = st.number_input("Verificación $:", value=float(
+                datos.get("VERIFICACION", 0.0)) if datos.get("VERIFICACION") else 0.0)
+            acc_val = st.number_input("Accesorios $:", value=float(
+                datos.get("ACCESORIOS", 0.0)) if datos.get("ACCESORIOS") else 0.0)
+            placas_val = st.number_input("Placas / Tenencia $:", value=float(datos.get(
+                "PLACAS / TENENCIA", 0.0)) if datos.get("PLACAS / TENENCIA") else 0.0)
+
+        # --- SECCIÓN 4: AUTORIZACIONES ---
+        st.subheader("✍️ Autorizaciones")
+        ca1, ca2 = st.columns(2)
+        with ca1:
+            gerente_semi = st.text_input(
+                "Gerente de Autos Seminuevos:", value=datos.get("GERENTE DE SEMINUEVOS", ""))
+        with ca2:
+            gerente_ventas = st.text_input(
+                "Gerente de Ventas:", value=datos.get("GERENTE DE VENTAS", ""))
+
+        # --- SECCIÓN 5: REVISIÓN SAT ---
+        with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
+            datos_validados = {}
+            # Filtrar llaves que no son de formulario interno
+            llaves_sat = [k for k in datos.keys() if k not in fin_opciones + ["ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO", "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades", "Monto a Financiar",
+                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones"]]
+
+            cols_sat = st.columns(2)
+            for i, k in enumerate(llaves_sat):
+                with cols_sat[i % 2]:
+                    datos_validados[k] = st.text_input(
+                        f"Validar {k}", value=datos.get(k, ""))
+
+        # --- BOTÓN DE CIERRE ---
+        if st.button("Confirmar y Guardar Cambios"):
+            if ident_sel == "SELECCIONE UNA OPCIÓN":
+                st.error("❌ Selecciona una Identificación.")
+            else:
+                with st.spinner("Guardando en Sheets..."):
+                    # Consolidar todo lo editado
+                    # Empezamos con los datos del SAT
+                    datos_finales = {**datos_validados}
+                    datos_finales.update({
+                        "Identificaciones": ident_sel, "EMISION": emis_sel, "FOLIO": folio_val,
+                        "OCUPACION": ocupacion_val, "Auto": auto_val, "AÑO": año_val,
+                        "Precio Auto": precio_val, "Color": color_val, "Pago Inicial": pago_ini_val,
+                        "Plazo": plazo_val, "Mensualidades": mensualidad_val, "Monto a Financiar": monto_fin_val,
+                        "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
+                        "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
+                        "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
+                        "KUNA": "SÍ" if "KUNA" in tipo_fin else "",
+                        "SICREA": "SÍ" if "SICREA" in tipo_fin else "",
+                        "OTRO": "SÍ" if "OTRO" in tipo_fin else "",
+                        "GARANTIA EXTENDIDA": garantia_val if garantia_val > 0 else "",
+                        "SEGURO": seguro_val if seguro_val > 0 else "",
+                        "KIT DE SEGURIDAD": kit_val if kit_val > 0 else "",
+                        "GESTORIA": gestoria_val if gestoria_val > 0 else "",
+                        "PLACAS / TENENCIA": placas_val if placas_val > 0 else "",
+                        "VERIFICACION": verif_val if verif_val > 0 else "",
+                        "ACCESORIOS": acc_val if acc_val > 0 else "",
+                        "TOMA DE AUTO": toma_auto_val,
+                        "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
+                        "GERENTE DE SEMINUEVOS": gerente_semi,
+                        "GERENTE DE VENTAS": gerente_ventas
+                    })
+
+                    id_gen = guardar_pedido_y_actualizar_t2(datos_finales)
+                    st.success(f"✅ Pedido {id_gen} guardado correctamente.")
+                    st.balloons()
 
         st.divider()
-
-        # --- BOTONES DE IMPRESIÓN ---
         st.subheader("🖨️ Formatos para Impresión")
-        c_print1, c_print2 = st.columns(2)
-        with c_print1:
-            url_nissan = obtener_url_impresion("Pedido")
-            st.link_button("📄 Imprimir Pedido Nissan",
-                           url_nissan, use_container_width=True)
-
-        with c_print2:
-            url_stellantis = obtener_url_impresion("pedido_stellantis")
-            st.link_button("📄 Imprimir Pedido Stellantis",
-                           url_stellantis, use_container_width=True)
+        cp1, cp2 = st.columns(2)
+        with cp1:
+            st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
+                "Pedido"), use_container_width=True)
+        with cp2:
+            st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
+                "pedido_stellantis"), use_container_width=True)
