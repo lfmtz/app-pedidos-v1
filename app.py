@@ -50,7 +50,7 @@ with tab1:
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
-    # 1. Botón de reset manual
+    # 1. Botón de reset manual en sidebar
     if st.sidebar.button("♻️ Limpiar Formulario / Nuevo Registro"):
         st.session_state.datos_extraidos = {}
         st.rerun()
@@ -60,32 +60,30 @@ with tab2:
                              "Opción A: Nuevo Cliente (Subir Constancia)",
                              "Opción B: Cliente Existente (Inyectar ID en T2)"])
 
-    # 3. LÓGICA DE AUTO-LIMPIEZA DEFINITIVA
-    # Inicializamos la variable de control si no existe
+    # 3. LÓGICA DE AUTO-LIMPIEZA (Solo al cambiar de B a A)
     if "opcion_anterior" not in st.session_state:
         st.session_state.opcion_anterior = opcion_pedido
 
-    # Si el usuario CAMBIÓ de la B (Existente) a la A (Nuevo), limpiamos la memoria
     if st.session_state.opcion_anterior == "Opción B: Cliente Existente (Inyectar ID en T2)" and \
        opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         st.session_state.datos_extraidos = {}
         st.session_state.opcion_anterior = opcion_pedido
         st.rerun()
 
-    # Actualizamos la marca para la siguiente interacción
     st.session_state.opcion_anterior = opcion_pedido
 
-    # 4. Obtenemos los datos limpios o cargados
+    # 4. Obtenemos los datos actuales de la memoria
     datos = st.session_state.get("datos_extraidos", {})
 
     # --- INICIO DE BLOQUES DE OPCIÓN ---
-    if datos or opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
+    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         archivo = st.file_uploader("Sube la Constancia de Situación Fiscal",
                                    type=["pdf", "jpg", "png", "jpeg"])
 
         if archivo is not None:
-            # Si no hay datos o si presionan "Reprocesar" en el sidebar
-            if "datos_extraidos" not in st.session_state or st.sidebar.button("🔄 Reprocesar"):
+            # Solo procesamos si la memoria está vacía o si pedimos Reprocesar
+            # Usamos una marca para saber si el archivo ya se procesó
+            if not datos or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
                     st.session_state.datos_extraidos = extraer_datos_memoria(
@@ -106,7 +104,6 @@ with tab2:
                             id_existente.upper())
                         if datos_rec:
                             st.session_state.datos_extraidos = datos_rec
-                            # Inyectar el ID en T2 del Excel
                             inyectar_t2_existente(id_existente.upper())
                             st.rerun()
                         else:
@@ -115,7 +112,7 @@ with tab2:
     # --- FORMULARIO DINÁMICO ---
     # Si hay datos (de la opción A o B), mostramos el formulario
     # if datos:
-    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)" or datos:
+    if datos or opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         st.divider()
         # Buscar contacto si es nuevo cliente y tenemos RFC
         rfc_detectado = datos.get("RFC:", "")
