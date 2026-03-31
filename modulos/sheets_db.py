@@ -184,37 +184,29 @@ def obtener_datos_pedido_por_id(id_seguimiento):
 
 
 def obtener_url_impresion(pestana):
-    """ESTA FUNCIÓN ES EXCLUSIVA PARA EL PEDIDO (NISSAN/STELLANTIS)"""
+    """
+    Restaura la impresión original de Pedidos Nissan y Stellantis.
+    Elimina interferencias de otras pestañas.
+    """
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GIDs originales de tus pedidos
+    # Diccionario de GIDs originales y seguros
     gids = {
         "Pedido": "0",
         "pedido_stellantis": "2059378122"
     }
     gid = gids.get(pestana, "0")
 
-    # URL limpia para una sola hoja
-    return (
+    # URL estándar y limpia
+    url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
-        f"format=pdf&gid={gid}&size=letter&portrait=true&fitw=true"
-        "&gridlines=false&printtitle=false&sheetnames=false&fzr=false"
+        f"format=pdf&gid={gid}"
+        "&size=letter"
+        "&portrait=true"
+        "&fitw=true"
+        "&gridlines=false"
+        "&printtitle=false"
+        "&sheetnames=false"
+        "&fzr=false"
     )
-
-
-def obtener_url_pld_completo():
-    """ESTA FUNCIÓN ES EXCLUSIVA PARA LAS 3 HOJAS DE PLD"""
-    spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
-
-    # GIDs de tus pestañas PLD
-    gid1 = "117614662"   # PLD_1
-    gid2 = "486590056"   # PLD_2
-    gid3 = "1210346388"  # PLD_3
-
-    return (
-        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
-        "format=pdf&size=letter&portrait=true&scale=4"
-        "&top_margin=0.20&bottom_margin=0.20&left_margin=0.20&right_margin=0.20"
-        "&gridlines=false&printtitle=false&sheetnames=false"
-        f"&select={gid1},{gid2},{gid3}"
-    )
+    return url

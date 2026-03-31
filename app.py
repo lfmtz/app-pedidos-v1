@@ -294,13 +294,12 @@ with tab2:
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")
-        cp1, cp2, cp3 = st.columns(3)
+        cp1, cp2 = st.columns(2)  # Regresamos a 2 columnas
         with cp1:
             st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
                 "Pedido"), use_container_width=True)
         with cp2:
             st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
                 "pedido_stellantis"), use_container_width=True)
-        with cp3:
-            st.link_button("🛡️ Imprimir Formatos PLD",
-                           obtener_url_pld_completo(), use_container_width=True)
+
+        # El botón de PLD queda fuera hasta que hagamos pruebas controladas
