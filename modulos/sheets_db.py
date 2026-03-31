@@ -214,26 +214,36 @@ def obtener_url_impresion(hoja_nombre):
 
 
 def obtener_url_pld_completo():
-    """Genera un PDF único uniendo las 3 pestañas de PLD (1, 2 y 3)."""
+    """Genera un PDF uniendo rangos específicos de las 3 pestañas de PLD."""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GIDs proporcionados por el usuario [cite: 10, 91]
+    # GIDs de tus pestañas
     gid1 = "117614662"   # PLD_1
     gid2 = "486590056"   # PLD_2
     gid3 = "1210346388"  # PLD_3
 
-    # Construcción de la URL de exportación múltiple
+    # Definimos los rangos para que se vea como en tu imagen
+    # Si PLD_2 y PLD_3 tienen tamaños similares, A1:I37 funcionará perfecto.
+    rango1 = "A1:I37"
+    rango2 = "A1:I37"
+    rango3 = "A1:I37"
+
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         f"format=pdf"
-        f"&size=letter"          # Tamaño Carta [cite: 4]
-        f"&portrait=true"        # Orientación Vertical [cite: 5, 86]
-        f"&fitw=true"            # Ajustar al ancho de cada página
-        f"&gridlines=false"      # Sin líneas de cuadrícula
-        f"&printtitle=false"     # Sin título del documento
-        f"&sheetnames=false"     # Sin nombre de las pestañas
-        f"&fzr=false"            # Sin repetir filas inmovilizadas
-        f"&gid={gid1}"           # Punto de entrada
-        f"&select={gid1},{gid2},{gid3}"  # <--- Une las 3 pestañas en orden
+        f"&size=letter"          # Tamaño Carta
+        f"&portrait=true"        # Vertical
+        f"&scale=4"              # <--- ESCALA "Ajustar a la página"
+        f"&top_margin=0.5"       # Márgenes pequeños para que luzca el formato
+        f"&bottom_margin=0.5"
+        f"&left_margin=0.5"
+        f"&right_margin=0.5"
+        f"&gridlines=false"
+        f"&printtitle=false"
+        f"&sheetnames=false"
+        f"&fzr=false"
+        f"&gid={gid1}"           # Hoja inicial
+        f"&range={rango1}"       # Rango de la primera hoja
+        f"&select={gid1},{gid2},{gid3}"  # Une las tres
     )
     return url
