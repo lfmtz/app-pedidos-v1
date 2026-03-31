@@ -75,10 +75,11 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         "GARANTIA EXTENDIDA": 36, "SEGURO": 37, "KIT DE SEGURIDAD": 38,
         "GESTORIA": 39, "PLACAS / TENENCIA": 40, "VERIFICACION": 41,
         "ACCESORIOS": 42, "TOMA DE AUTO": 43, "PRECIO DE TOMA": 44,
-        "GERENTE DE AUTOS SEMINUEVOS": 45, "GERENTE DE VENTAS": 46
+        "GERENTE DE AUTOS SEMINUEVOS": 45, "GERENTE DE VENTAS": 46,
+        "USO_CFDI": 47, "MET_PAGO": 48, "ANTICIPO": 49
     }
 
-    fila_a_inyectar = [""] * 46
+    fila_a_inyectar = [""] * 49
     datos["ID_Seguimiento"] = id_seguimiento  # Corregido NameError
 
     for campo, valor in datos.items():
@@ -95,8 +96,8 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     try:
         if id_actualizar and fila_destino <= len(todas_las_filas):
             # ACTUALIZAR fila existente
-            # AT es la columna 46
-            rango_update = f"A{fila_destino}:AT{fila_destino}"
+            # Cambiamos AT (46) por AW (49) para que incluya los nuevos campos
+            rango_update = f"A{fila_destino}:AW{fila_destino}"
             sheet_pedido.update(rango_update, [fila_a_inyectar])
         else:
             # INSERTAR fila nueva
@@ -164,7 +165,8 @@ def obtener_datos_pedido_por_id(id_seguimiento):
             "Plazo", "Mensualidades", "Monto a Financiar", "AÑO", "OCUPACION", "FINANCIERA PROPIA",
             "CONTADO", "BANCARIO", "KUNA", "OTRO", "SICREA", "GARANTIA EXTENDIDA", "SEGURO",
             "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
-            "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS"
+            "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS",
+            "USO_CFDI", "MET_PAGO", "ANTICIPO"
         ]
 
         # Creamos el diccionario emparejando encabezado con valor
