@@ -240,5 +240,10 @@ def obtener_url_pld(parte):
         "&printtitle=false"
         "&sheetnames=false"
         "&fzr=false"
+        # --- ESTO ES LO QUE ARREGLA LOS MÁRGENES ---
+        "&top_margin=0.20"      # Margen superior
+        "&bottom_margin=0.20"   # Margen inferior
+        "&left_margin=0.20"     # Margen izquierdo
+        "&right_margin=0.20"    # Margen derecho
     )
     return url
