@@ -185,28 +185,31 @@ def obtener_datos_pedido_por_id(id_seguimiento):
 
 def obtener_url_impresion(pestana):
     """
-    Restaura la impresión original de Pedidos Nissan y Stellantis.
-    Elimina interferencias de otras pestañas.
+    Configuración de impresión ajustada con los GIDs reales 
+    sacados de los enlaces proporcionados.
     """
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # Diccionario de GIDs originales y seguros
+    # GIDs ACTUALIZADOS SEGÚN TUS LINKS:
+    # Stellantis: 1351176481
+    # Pedido Nissan: 211566386
     gids = {
-        "Pedido": "0",
-        "pedido_stellantis": "2059378122"
+        "Pedido": "211566386",
+        "pedido_stellantis": "1351176481"
     }
-    gid = gids.get(pestana, "0")
 
-    # URL estándar y limpia
+    gid = gids.get(pestana, "211566386")
+
+    # URL de exportación limpia para PDF
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         f"format=pdf&gid={gid}"
-        "&size=letter"
-        "&portrait=true"
-        "&fitw=true"
-        "&gridlines=false"
-        "&printtitle=false"
-        "&sheetnames=false"
-        "&fzr=false"
+        "&size=letter"              # Tamaño Carta
+        "&portrait=true"            # Vertical
+        "&fitw=true"                # Ajustar al ancho de página
+        "&gridlines=false"          # Sin líneas de cuadrícula
+        "&printtitle=false"         # Sin título del documento
+        "&sheetnames=false"         # Sin nombre de la hoja
+        "&fzr=false"                # Sin repetir filas congeladas
     )
     return url
