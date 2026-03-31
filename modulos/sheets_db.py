@@ -214,36 +214,28 @@ def obtener_url_impresion(hoja_nombre):
 
 
 def obtener_url_pld_completo():
-    """Genera un PDF uniendo rangos específicos de las 3 pestañas de PLD."""
+    """Genera un PDF uniendo las 3 pestañas de PLD con parámetros de escala forzados."""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GIDs de tus pestañas
     gid1 = "117614662"   # PLD_1
     gid2 = "486590056"   # PLD_2
     gid3 = "1210346388"  # PLD_3
 
-    # Definimos los rangos para que se vea como en tu imagen
-    # Si PLD_2 y PLD_3 tienen tamaños similares, A1:I37 funcionará perfecto.
-    rango1 = "A1:I37"
-    rango2 = "A1:I37"
-    rango3 = "A1:I37"
-
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
-        f"format=pdf"
-        f"&size=letter"          # Tamaño Carta
-        f"&portrait=true"        # Vertical
-        f"&scale=4"              # <--- ESCALA "Ajustar a la página"
-        f"&top_margin=0.5"       # Márgenes pequeños para que luzca el formato
-        f"&bottom_margin=0.5"
-        f"&left_margin=0.5"
-        f"&right_margin=0.5"
-        f"&gridlines=false"
-        f"&printtitle=false"
-        f"&sheetnames=false"
-        f"&fzr=false"
-        f"&gid={gid1}"           # Hoja inicial
-        f"&range={rango1}"       # Rango de la primera hoja
-        f"&select={gid1},{gid2},{gid3}"  # Une las tres
+        "format=pdf"
+        "&size=letter"           # Tamaño Carta
+        "&portrait=true"         # Vertical
+        "&scale=4"               # Ajustar al ancho (Fit to width)
+        "&top_margin=0.20"       # Márgenes muy delgados para que no se vea pequeño
+        "&bottom_margin=0.20"
+        "&left_margin=0.20"
+        "&right_margin=0.20"
+        "&gridlines=false"
+        "&printtitle=false"
+        "&sheetnames=false"
+        "&fzr=false"
+        "&horizontal_alignment=CENTER"
+        f"&select={gid1},{gid2},{gid3}"
     )
     return url
