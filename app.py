@@ -229,7 +229,7 @@ with tab2:
             datos_validados = {}
             # Filtrar llaves que no son de formulario interno
             llaves_sat = [k for k in datos.keys() if k not in fin_opciones + ["ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO", "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades", "Monto a Financiar",
-                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones"]]
+                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO", "ANTICIPO"]]
 
             cols_sat = st.columns(2)
             for i, k in enumerate(llaves_sat):
