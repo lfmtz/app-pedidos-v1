@@ -184,11 +184,17 @@ def obtener_datos_pedido_por_id(id_seguimiento):
 
 
 def obtener_url_impresion(pestana):
-    """PARA EL PEDIDO NISSAN/STELLANTIS (Vuelve a ser como antes)"""
+    """ESTA FUNCIÓN ES EXCLUSIVA PARA EL PEDIDO (NISSAN/STELLANTIS)"""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
-    gids = {"Pedido": "0", "pedido_stellantis": "2059378122"}
+
+    # GIDs originales de tus pedidos
+    gids = {
+        "Pedido": "0",
+        "pedido_stellantis": "2059378122"
+    }
     gid = gids.get(pestana, "0")
 
+    # URL limpia para una sola hoja
     return (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         f"format=pdf&gid={gid}&size=letter&portrait=true&fitw=true"
@@ -197,9 +203,13 @@ def obtener_url_impresion(pestana):
 
 
 def obtener_url_pld_completo():
-    """EXCLUSIVO PARA LAS 3 HOJAS DE PLD (Usa los nuevos GIDs)"""
+    """ESTA FUNCIÓN ES EXCLUSIVA PARA LAS 3 HOJAS DE PLD"""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
-    gid1, gid2, gid3 = "117614662", "486590056", "1210346388"
+
+    # GIDs de tus pestañas PLD
+    gid1 = "117614662"   # PLD_1
+    gid2 = "486590056"   # PLD_2
+    gid3 = "1210346388"  # PLD_3
 
     return (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
