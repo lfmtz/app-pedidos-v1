@@ -214,22 +214,26 @@ def obtener_url_impresion(hoja_nombre):
 
 
 def obtener_url_pld_completo():
-    """Genera la URL para descargar las 3 hojas de la pestaña PLD en un solo PDF."""
+    """Genera un PDF único uniendo las 3 pestañas de PLD (1, 2 y 3)."""
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GID de la pestaña PLD (Asegúrate de que este sea el GID real de esa pestaña)
-    gid_pld = "117614662"
+    # GIDs proporcionados por el usuario [cite: 10, 91]
+    gid1 = "117614662"   # PLD_1
+    gid2 = "486590056"   # PLD_2
+    gid3 = "1210346388"  # PLD_3
 
+    # Construcción de la URL de exportación múltiple
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
-        f"format=pdf&gid={gid_pld}"
-        "&size=letter"          # Tamaño Carta
-        "&portrait=true"        # Vertical
-        "&fitw=true"            # Ajustar al ancho (esto une las secciones)
-        "&gridlines=false"      # Sin líneas de Excel
-        "&printtitle=false"
-        "&sheetnames=false"
-        "&fzr=false"
-        "&horizontal_alignment=CENTER"  # Centrar contenido
+        f"format=pdf"
+        f"&size=letter"          # Tamaño Carta [cite: 4]
+        f"&portrait=true"        # Orientación Vertical [cite: 5, 86]
+        f"&fitw=true"            # Ajustar al ancho de cada página
+        f"&gridlines=false"      # Sin líneas de cuadrícula
+        f"&printtitle=false"     # Sin título del documento
+        f"&sheetnames=false"     # Sin nombre de las pestañas
+        f"&fzr=false"            # Sin repetir filas inmovilizadas
+        f"&gid={gid1}"           # Punto de entrada
+        f"&select={gid1},{gid2},{gid3}"  # <--- Une las 3 pestañas en orden
     )
     return url
