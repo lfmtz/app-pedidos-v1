@@ -63,7 +63,9 @@ with tab2:
     # Si el usuario selecciona "Opción A", pero en la memoria hay un ID de la "Opción B",
     # limpiamos todo para que el formulario aparezca vacío y listo para un cliente nuevo.
     if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
-        if "ID_Seguimiento" in st.session_state.get("datos_extraidos", {}):
+        datos_actuales = st.session_state.get("datos_extraidos", {})
+        # Si los datos que están en memoria tienen un ID, significa que son del cliente viejo
+        if "ID_Seguimiento" in datos_actuales:
             st.session_state.datos_extraidos = {}
             st.rerun()
 
@@ -71,7 +73,7 @@ with tab2:
     datos = st.session_state.get("datos_extraidos", {})
 
     # --- INICIO DE BLOQUES DE OPCIÓN ---
-    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
+    if datos or opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         archivo = st.file_uploader("Sube la Constancia de Situación Fiscal",
                                    type=["pdf", "jpg", "png", "jpeg"])
 
