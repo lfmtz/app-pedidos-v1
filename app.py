@@ -5,8 +5,7 @@ from modulos.sheets_db import (
     inyectar_t2_existente,
     buscar_contacto_externo,
     obtener_datos_pedido_por_id,
-    obtener_url_impresion,
-    obtener_url_pld_completo
+    obtener_url_impresion  # <--- DEJA SOLO ESTA PARA IMPRESIÓN
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
