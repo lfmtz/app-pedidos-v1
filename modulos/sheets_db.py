@@ -230,7 +230,6 @@ def obtener_url_pld(parte):
 
     gid = gids.get(parte)
 
-    # URL limpia para una sola hoja
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         f"format=pdf&gid={gid}"

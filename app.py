@@ -6,7 +6,7 @@ from modulos.sheets_db import (
     buscar_contacto_externo,
     obtener_datos_pedido_por_id,
     obtener_url_impresion,
-    obtener_url_pld
+    obtener_url_pld  # <--- AGREGA ESTA LÍNEA AQUÍ
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -295,7 +295,7 @@ with tab2:
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")
 
-        # Fila 1: Pedidos
+        # Tus botones actuales (No los toques si ya funcionan)
         cp1, cp2 = st.columns(2)
         with cp1:
             st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
@@ -304,16 +304,16 @@ with tab2:
             st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
                 "pedido_stellantis"), use_container_width=True)
 
-        # Fila 2: PLD (3 botones)
+        # BOTONES NUEVOS DEL PLD
         st.write("---")
-        st.caption("Formatos PLD (Impresión Individual)")
+        st.caption("Formatos PLD (Individuales)")
         c_pld1, c_pld2, c_pld3 = st.columns(3)
         with c_pld1:
-            st.link_button("📄 PLD Parte 1", obtener_url_pld(
+            st.link_button("📄 PLD 1", obtener_url_pld(
                 "PLD_1"), use_container_width=True)
         with c_pld2:
-            st.link_button("📄 PLD Parte 2", obtener_url_pld(
+            st.link_button("📄 PLD 2", obtener_url_pld(
                 "PLD_2"), use_container_width=True)
         with c_pld3:
-            st.link_button("📄 PLD Parte 3", obtener_url_pld(
+            st.link_button("📄 PLD 3", obtener_url_pld(
                 "PLD_3"), use_container_width=True)
