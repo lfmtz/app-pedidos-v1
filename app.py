@@ -46,30 +46,36 @@ with tab1:
             st.warning("Por favor ingrese un RFC.")
 
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
+# --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
-    # 1. Botón de reset en la barra lateral (opcional pero muy útil)
+    # 1. Botón de reset manual
     if st.sidebar.button("♻️ Limpiar Formulario / Nuevo Registro"):
         st.session_state.datos_extraidos = {}
         st.rerun()
 
-    # 2. El Radio Button define la acción actual
+    # 2. El Radio Button
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
                              "Opción A: Nuevo Cliente (Subir Constancia)",
                              "Opción B: Cliente Existente (Inyectar ID en T2)"])
 
-    # 3. LÓGICA DE AUTO-LIMPIEZA:
-    # Si el usuario selecciona "Opción A", pero en la memoria hay un ID de la "Opción B",
-    # limpiamos todo para que el formulario aparezca vacío y listo para un cliente nuevo.
-    if opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
-        datos_actuales = st.session_state.get("datos_extraidos", {})
-        # Si los datos que están en memoria tienen un ID, significa que son del cliente viejo
-        if "ID_Seguimiento" in datos_actuales:
-            st.session_state.datos_extraidos = {}
-            st.rerun()
+    # 3. LÓGICA DE AUTO-LIMPIEZA DEFINITIVA
+    # Inicializamos la variable de control si no existe
+    if "opcion_anterior" not in st.session_state:
+        st.session_state.opcion_anterior = opcion_pedido
 
-    # 4. Ahora sí, obtenemos los datos de la memoria (vacíos o con info)
+    # Si el usuario CAMBIÓ de la B (Existente) a la A (Nuevo), limpiamos la memoria
+    if st.session_state.opcion_anterior == "Opción B: Cliente Existente (Inyectar ID en T2)" and \
+       opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
+        st.session_state.datos_extraidos = {}
+        st.session_state.opcion_anterior = opcion_pedido
+        st.rerun()
+
+    # Actualizamos la marca para la siguiente interacción
+    st.session_state.opcion_anterior = opcion_pedido
+
+    # 4. Obtenemos los datos limpios o cargados
     datos = st.session_state.get("datos_extraidos", {})
 
     # --- INICIO DE BLOQUES DE OPCIÓN ---
