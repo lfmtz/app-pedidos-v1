@@ -211,6 +211,11 @@ def obtener_url_impresion(pestana):
         "&printtitle=false"         # Sin título del documento
         "&sheetnames=false"         # Sin nombre de la hoja
         "&fzr=false"                # Sin repetir filas congeladas
+        # --- ESTO ES LO QUE ARREGLA LOS MÁRGENES ---
+        "&top_margin=0.80"          # Margen superior
+        "&bottom_margin=0.80"       # Margen inferior
+        "&left_margin=0.80"         # Margen izquierdo
+        "&right_margin=0.80"        # Margen derecho
     )
     return url
 
