@@ -144,15 +144,23 @@ def generar_solicitud_pdf(datos_cliente):
 
 
 def generar_pdf_aviso_privacidad(datos_cliente):
-    # 1. Ruta de la plantilla en tu carpeta local
-    ruta_plantilla = r"C:\Users\luism\Documents\Gestor_Creditos\plantillas\aviso_privacidad_stella.pdf"
+    # 1. USAR RUTA RELATIVA (Esto busca la carpeta 'plantillas' en tu proyecto de GitHub)
+    # No uses C:\Users...
+    ruta_plantilla = os.path.join("plantillas", "aviso_privacidad_stella.pdf")
 
-    # 2. Obtenemos el nombre concatenado (Ej: LUIS FERNANDO MARTINEZ TREJO) [cite: 73]
+    # Verificación de seguridad para el log
+    if not os.path.exists(ruta_plantilla):
+        raise FileNotFoundError(
+            f"No se encontró el PDF en: {os.path.abspath(ruta_plantilla)}")
+
+    # 2. Obtenemos el nombre concatenado
     nombre_completo = concatenar_nombre_cliente(datos_cliente)
 
-    # 3. Leemos la plantilla original
-    template = pdfrw.PdfReader(ruta_plantilla)
-
+    # 3. Leemos la plantilla
+    try:
+        template = pdfrw.PdfReader(ruta_plantilla)
+    except Exception as e:
+        raise Exception(f"Error crítico al leer el PDF: {e}")
     # 4. Buscamos el campo exacto en el PDF de Stella Motors [cite: 73]
     for page in template.pages:
         annotations = page.get('/Annots')
