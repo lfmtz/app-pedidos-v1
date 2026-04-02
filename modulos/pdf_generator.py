@@ -144,41 +144,53 @@ def generar_solicitud_pdf(datos_cliente):
 
 
 def generar_pdf_aviso_privacidad(datos_cliente):
-    # 1. USAR RUTA RELATIVA (Esto busca la carpeta 'plantillas' en tu proyecto de GitHub)
-    # No uses C:\Users...
+    # 1. RUTA RELATIVA
     ruta_plantilla = os.path.join("plantillas", "aviso_privacidad_stella.pdf")
 
-    # Verificación de seguridad para el log
     if not os.path.exists(ruta_plantilla):
         raise FileNotFoundError(
             f"No se encontró el PDF en: {os.path.abspath(ruta_plantilla)}")
 
-    # 2. Obtenemos el nombre concatenado
-    nombre_completo = concatenar_nombre_cliente(datos_cliente)
+    # 2. NOMBRE CONCATENADO
+    nombre_completo = concatenar_nombre_cliente(datos_cliente).upper()
 
-    # 3. Leemos la plantilla
+    # 3. LECTURA DE PLANTILLA
     try:
         template = pdfrw.PdfReader(ruta_plantilla)
     except Exception as e:
         raise Exception(f"Error crítico al leer el PDF: {e}")
-    # 4. Buscamos el campo exacto en el PDF de Stella Motors [cite: 73]
+
+    # 4. LLENADO DE CAMPOS
     for page in template.pages:
         annotations = page.get('/Annots')
         if annotations:
             for annotation in annotations:
-                # Comparamos con el nombre técnico del campo en el PDF
-                if annotation.get('/T') == '(Nombre Cliente aviso priva)':
-                    # Insertamos el nombre en mayúsculas
-                    annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
-                    # Actualiza la apariencia visual
-                    annotation.update(pdfrw.PdfDict(AP=''))
+                nombre_campo_pdf = annotation.get('/T')
+                if nombre_campo_pdf:
+                    # Limpiamos paréntesis del nombre técnico del campo
+                    nombre_campo_pdf = nombre_campo_pdf.replace(
+                        '(', '').replace(')', '')
 
-    # 5. Usamos BytesIO para generar el archivo en memoria (como en tu solicitud)
+                if nombre_campo_pdf == 'Nombre Cliente aviso priva':
+                    # USAMOS nombre_completo (que es la variable definida arriba)
+                    annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
+
+                    # Eliminar apariencia previa para evitar efecto fantasma
+                    if '/AP' in annotation:
+                        del annotation['/AP']
+
+    # --- REFUERZO PARA VISIBILIDAD INMEDIATA ---
+    if not template.Root.AcroForm:
+        template.Root.AcroForm = pdfrw.PdfDict()
+    template.Root.AcroForm.update(pdfrw.PdfDict(
+        NeedAppearances=pdfrw.PdfObject('true')))
+
+    # 5. GENERAR EN MEMORIA
     output_buffer = BytesIO()
     pdfrw.PdfWriter().write(output_buffer, template)
     output_buffer.seek(0)
 
-    # Devolvemos el buffer y el nombre personalizado del archivo
+    # NOMBRE DEL ARCHIVO
     nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_')}.pdf"
 
     return output_buffer, nombre_descarga
