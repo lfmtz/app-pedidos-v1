@@ -144,14 +144,14 @@ def generar_solicitud_pdf(datos_cliente):
 
 
 def generar_pdf_aviso_privacidad(datos_cliente):
-    # 1. RUTA RELATIVA
+    # 1. RUTA RELATIVA (Funciona en tu PC y en Streamlit Cloud)
     ruta_plantilla = os.path.join("plantillas", "aviso_privacidad_stella.pdf")
 
     if not os.path.exists(ruta_plantilla):
         raise FileNotFoundError(
             f"No se encontró el PDF en: {os.path.abspath(ruta_plantilla)}")
 
-    # 2. NOMBRE CONCATENADO
+    # 2. NOMBRE CONCATENADO EN MAYÚSCULAS
     nombre_completo = concatenar_nombre_cliente(datos_cliente).upper()
 
     # 3. LECTURA DE PLANTILLA
@@ -160,37 +160,42 @@ def generar_pdf_aviso_privacidad(datos_cliente):
     except Exception as e:
         raise Exception(f"Error crítico al leer el PDF: {e}")
 
-    # 4. LLENADO DE CAMPOS
+    # --- LÓGICA DE VISIBILIDAD FORZADA ---
+    # Forzamos que el lector de PDF dibuje los campos al abrir
+    if not template.Root.AcroForm:
+        template.Root.AcroForm = pdfrw.PdfDict()
+
+    template.Root.AcroForm.update(pdfrw.PdfDict(
+        NeedAppearances=pdfrw.PdfObject('true')))
+
+    # 4. LLENADO DEL CAMPO
     for page in template.pages:
         annotations = page.get('/Annots')
         if annotations:
             for annotation in annotations:
                 nombre_campo_pdf = annotation.get('/T')
                 if nombre_campo_pdf:
-                    # Limpiamos paréntesis del nombre técnico del campo
+                    # Limpiamos paréntesis del nombre técnico del campo para compararlo
                     nombre_campo_pdf = nombre_campo_pdf.replace(
                         '(', '').replace(')', '')
 
+                # BUSCAMOS TU CAMPO ESPECÍFICO
                 if nombre_campo_pdf == 'Nombre Cliente aviso priva':
-                    # USAMOS nombre_completo (que es la variable definida arriba)
+                    # Inyectamos el nombre.
+                    # f'({valor})' es el formato interno de PDF, no imprime los paréntesis.
                     annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
 
-                    # Eliminar apariencia previa para evitar efecto fantasma
+                    # ELIMINAMOS LA APARIENCIA PREVIA (/AP)
+                    # Esto es lo que quita el "efecto fantasma"
                     if '/AP' in annotation:
                         del annotation['/AP']
 
-    # --- REFUERZO PARA VISIBILIDAD INMEDIATA ---
-    if not template.Root.AcroForm:
-        template.Root.AcroForm = pdfrw.PdfDict()
-    template.Root.AcroForm.update(pdfrw.PdfDict(
-        NeedAppearances=pdfrw.PdfObject('true')))
-
-    # 5. GENERAR EN MEMORIA
+    # 5. GENERAR EN MEMORIA (BytesIO)
     output_buffer = BytesIO()
     pdfrw.PdfWriter().write(output_buffer, template)
     output_buffer.seek(0)
 
-    # NOMBRE DEL ARCHIVO
+    # 6. NOMBRE DEL ARCHIVO PARA DESCARGA
     nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_')}.pdf"
 
     return output_buffer, nombre_descarga
