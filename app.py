@@ -10,6 +10,7 @@ from modulos.sheets_db import (
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
+from modulos.pdf_generator import generar_pdf_aviso_privacidad
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
@@ -317,3 +318,21 @@ with tab2:
         with c_pld3:
             st.link_button("📄 PLD 3", obtener_url_pld(
                 "PLD_3"), use_container_width=True)
+
+        # El botón solo aparece si ya subiste la constancia y el OCR leyó los datos
+        if st.session_state.get('datos_ocr'):
+            if st.button("📝 Generar Aviso de Privacidad (PDF)", use_container_width=True):
+                # Recibimos el buffer y el nombre personalizado
+                pdf_buffer, nombre_archivo = generar_pdf_aviso_privacidad(
+                    st.session_state.datos_ocr)
+
+                st.download_button(
+                    label=f"⬇️ Descargar {nombre_archivo}",
+                    data=pdf_buffer,
+                    file_name=nombre_archivo,
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+        else:
+            st.info(
+                "ℹ️ Sube una Constancia de Situación Fiscal para habilitar el Aviso de Privacidad.")
