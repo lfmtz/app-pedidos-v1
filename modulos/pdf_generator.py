@@ -1,6 +1,7 @@
 import pdfrw
 from io import BytesIO
 import os
+from modulos.procesador_nombres import concatenar_nombre_cliente
 
 
 def generar_solicitud_pdf(datos_cliente):
@@ -140,3 +141,36 @@ def generar_solicitud_pdf(datos_cliente):
     pdfrw.PdfWriter().write(pdf_bytes, template)
     pdf_bytes.seek(0)
     return pdf_bytes
+
+
+def generar_pdf_aviso_privacidad(datos_cliente):
+    # 1. Ruta de la plantilla en tu carpeta local
+    ruta_plantilla = r"C:\Users\luism\Documents\Gestor_Creditos\plantillas\aviso_privacidad_stella.pdf"
+
+    # 2. Obtenemos el nombre concatenado (Ej: LUIS FERNANDO MARTINEZ TREJO) [cite: 73]
+    nombre_completo = concatenar_nombre_cliente(datos_cliente)
+
+    # 3. Leemos la plantilla original
+    template = pdfrw.PdfReader(ruta_plantilla)
+
+    # 4. Buscamos el campo exacto en el PDF de Stella Motors [cite: 73]
+    for page in template.pages:
+        annotations = page.get('/Annots')
+        if annotations:
+            for annotation in annotations:
+                # Comparamos con el nombre técnico del campo en el PDF
+                if annotation.get('/T') == '(Nombre Cliente aviso priva)':
+                    # Insertamos el nombre en mayúsculas
+                    annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
+                    # Actualiza la apariencia visual
+                    annotation.update(pdfrw.PdfDict(AP=''))
+
+    # 5. Usamos BytesIO para generar el archivo en memoria (como en tu solicitud)
+    output_buffer = BytesIO()
+    pdfrw.PdfWriter().write(output_buffer, template)
+    output_buffer.seek(0)
+
+    # Devolvemos el buffer y el nombre personalizado del archivo
+    nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_')}.pdf"
+
+    return output_buffer, nombre_descarga
