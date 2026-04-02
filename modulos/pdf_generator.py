@@ -183,7 +183,7 @@ def generar_pdf_aviso_privacidad(datos_cliente):
                 if nombre_campo_pdf == 'Nombre Cliente aviso priva':
                     # Inyectamos el nombre.
                     # f'({valor})' es el formato interno de PDF, no imprime los paréntesis.
-                    annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
+                    annotation.update(pdfrw.PdfDict(V=f'{nombre_completo}'))
 
                     # ELIMINAMOS LA APARIENCIA PREVIA (/AP)
                     # Esto es lo que quita el "efecto fantasma"
