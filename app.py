@@ -320,11 +320,15 @@ with tab2:
                 "PLD_3"), use_container_width=True)
 
         # El botón solo aparece si ya subiste la constancia y el OCR leyó los datos
-        if st.session_state.get('datos_ocr'):
+        # --- SECCIÓN: AVISO DE PRIVACIDAD STELLA MOTORS ---
+        st.write("---")
+
+        # Usamos 'datos_extraidos' porque ahí se guarda tanto lo del OCR como lo de Sheets
+        if st.session_state.get('datos_extraidos'):
             if st.button("📝 Generar Aviso de Privacidad (PDF)", use_container_width=True):
-                # Recibimos el buffer y el nombre personalizado
+                # Llamamos a la función usando la memoria actual
                 pdf_buffer, nombre_archivo = generar_pdf_aviso_privacidad(
-                    st.session_state.datos_ocr)
+                    st.session_state.datos_extraidos)
 
                 st.download_button(
                     label=f"⬇️ Descargar {nombre_archivo}",
@@ -335,4 +339,4 @@ with tab2:
                 )
         else:
             st.info(
-                "ℹ️ Sube una Constancia de Situación Fiscal para habilitar el Aviso de Privacidad.")
+                "ℹ️ Sube una Constancia o carga un ID para habilitar el Aviso de Privacidad.")
