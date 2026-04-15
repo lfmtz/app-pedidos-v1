@@ -34,18 +34,44 @@ tab1, tab2 = st.tabs(["📄 Generar Solicitud", "🔍 Validar Constancia"])
 # --- TAB 1: MÓDULO DE SOLICITUD ---
 with tab1:
     st.header("Generación de Solicitud PDF")
+
+    # 1. Agregamos el selector para que decidas antes de buscar
+    marca_sol = st.radio(
+        "Seleccione la marca de la solicitud:",
+        ["Nissan", "Stellantis"],
+        horizontal=True,
+        key="marca_selector_tab1"
+    )
+
     rfc_input = st.text_input(
         "Ingrese el RFC del cliente para buscar en la base:")
+
     if st.button("Buscar y Generar Solicitud"):
         if rfc_input:
-            with st.spinner("Buscando cliente..."):
+            with st.spinner(f"Buscando cliente y preparando solicitud de {marca_sol}..."):
                 cliente = buscar_cliente_por_rfc(rfc_input)
+
                 if cliente:
+                    # Ojo: corregí 'accredited' a 'acreditado' según tu mapeo anterior
                     st.success(
-                        f"Cliente encontrado: {cliente.get('Nombre(s) accredited', '')}")
-                    pdf_file = generar_solicitud_pdf(cliente)
-                    st.download_button(label="📥 Descargar Solicitud PDF", data=pdf_file,
-                                       file_name=f"Solicitud_{rfc_input.upper()}.pdf", mime="application/pdf")
+                        f"Cliente encontrado: {cliente.get('Nombre(s) acreditado', '')}")
+
+                    # 2. Lógica para decidir qué función llamar según el radio button
+                    if marca_sol == "Nissan":
+                        pdf_file = generar_solicitud_pdf(cliente)
+                        nombre_final = f"Solicitud_Nissan_{rfc_input.upper()}.pdf"
+                    else:
+                        # Llamamos a tu nueva función de Stellantis
+                        pdf_file, nombre_final = generar_pdf_stellantis(
+                            cliente)
+
+                    # 3. Botón de descarga
+                    st.download_button(
+                        label=f"📥 Descargar Solicitud {marca_sol}",
+                        data=pdf_file,
+                        file_name=nombre_final,
+                        mime="application/pdf"
+                    )
                 else:
                     st.error("Cliente no encontrado en SOL_CREDITO_ACTUAL_2026.")
         else:
@@ -292,36 +318,6 @@ with tab2:
                         st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
 
                     st.balloons()
-
-        # --- AQUÍ EMPIEZA LO NUEVO ---
-        st.divider()
-        st.subheader("🖨️ Generación de Solicitudes")
-
-        # Selector de marca
-        marca_sol = st.radio("Marca de Solicitud:", [
-                             "Nissan", "Stellantis"], horizontal=True)
-
-        if st.session_state.get('datos_extraidos'):
-            if marca_sol == "Nissan":
-                if st.button("📄 Generar Solicitud Nissan", use_container_width=True):
-                    # Tu función original de Nissan (ajusta si devuelve buffer y nombre)
-                    pdf = generar_solicitud_pdf(
-                        st.session_state.datos_extraidos)
-                    st.download_button("📥 Descargar Solicitud Nissan",
-                                       data=pdf,
-                                       file_name=f"Solicitud_Nissan_{st.session_state.datos_extraidos.get('RFC:', 'CLIENTE')}.pdf",
-                                       use_container_width=True)
-
-            else:
-                if st.button("📄 Generar Solicitud Stellantis", use_container_width=True):
-                    # Tu nueva función de Stellantis
-                    pdf_stella, nombre_stella = generar_pdf_stellantis(
-                        st.session_state.datos_extraidos)
-                    st.download_button("📥 Descargar Stellantis",
-                                       data=pdf_stella,
-                                       file_name=nombre_stella,
-                                       use_container_width=True)
-        # --- AQUÍ TERMINA LO NUEVO ---
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")
