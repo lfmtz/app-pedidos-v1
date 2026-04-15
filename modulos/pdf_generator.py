@@ -206,11 +206,22 @@ def generar_pdf_aviso_privacidad(datos_cliente):
 
 
 def generar_pdf_stellantis(datos_cliente):
-    # c es el diccionario con los datos del cliente traídos de Google Sheets
     c = datos_cliente
     from pdfrw.objects.pdfstring import PdfString
 
-    # --- 1. LÓGICA DE FECHAS (Igual que en Nissan para coherencia) ---
+    # 1. Preparación de variables concatenadas
+    nom = str(c.get('Nombre(s) acreditado', '')).strip()
+    pat = str(c.get('Apellido Paterno acreditado', '')).strip()
+    mat = str(c.get('Apellido Materno acreditado', '')).strip()
+    nombre_completo_final = f"{nom} {pat} {mat}".strip().upper()
+
+    calle = str(c.get('Calle (solo nombre)', '')).strip()
+    num_ext = str(c.get('Numero exterior', '')).strip()
+    num_int = str(c.get('Numero interior', '')).strip()
+    direccion_completa = f"{calle} EXT: {num_ext} INT: {num_int}".strip(
+    ).upper()
+
+    # 2. Lógica de fechas
     fecha_nac = str(c.get('Fecha de Nacimiento', ''))
     dia, mes, anio = "", "", ""
     if "/" in fecha_nac:
@@ -218,126 +229,106 @@ def generar_pdf_stellantis(datos_cliente):
         if len(partes) == 3:
             dia, mes, anio = partes[0], partes[1], partes[2]
 
-    fecha_ingreso = str(
-        c.get('Fecha de ingreso a la empresa ó institución', ''))
-    dia_ing, mes_ing, anio_ing = "", "", ""
-    if "/" in fecha_ingreso:
-        p_ing = fecha_ingreso.split("/")
-        if len(p_ing) == 3:
-            dia_ing, mes_ing, anio_ing = p_ing[0], p_ing[1], p_ing[2]
-
-    # --- 2. MAPEO DE STELLANTIS USANDO TU ESTRUCTURA DE SHEETS ---
-    # Relacionamos [Nombre Campo PDF] : [Valor de Google Sheets]
-
-    # 1. Creamos la variable del nombre completo primero para asegurar que no falle
-    nom = c.get('Nombre(s) acreditado', '').strip()
-    pat = c.get('Apellido Paterno acreditado', '').strip()
-    mat = c.get('Apellido Materno acreditado', '').strip()
-
-    calle = c.get('Calle (solo nombre)', '').strip()
-    num_ext = c.get('Numero exterior', '').strip()
-    num_int = c.get('Numero interior', '').strip()
-
-    # Concatenamos dirección con formato limpio
-    direccion_completa = f"{calle} EXT: {num_ext} INT: {num_int}".strip()
-
-    # Concatenamos con espacios limpios
-    nombre_completo_final = f"{nom} {pat} {mat}".strip().upper()
-
+    # 3. Diccionario de Mapeo (Asegúrate de que los nombres coincidan con los del PDF)
     mapeo_stella = {
-        'nom_acre': c.get('Nombre(s) acreditado'),
-        'ape_pat': c.get('Apellido Paterno acreditado'),
-        'ape_mat': c.get('Apellido Materno acreditado'),
-        'rfc': c.get('RFC'),
-        'curp': c.get('CURP'),
-        'nacionalidad': c.get('País de Nacimiento'),
-        'estado_nacimiento': c.get('Entidad Federativa de nacimiento'),
-        'fech_lugar_nac': f"{dia}/{mes}/{anio} - {c.get('Entidad Federativa de nacimiento', '')}",
+        'nom_acre': nom.upper(),
+        'ape_pat': pat.upper(),
+        'ape_mat': mat.upper(),
+        'rfc': str(c.get('RFC', '')).upper(),
+        'curp': str(c.get('CURP', '')).upper(),
+        'nacionalidad': str(c.get('País de Nacimiento', '')).upper(),
+        'estado_nacimiento': str(c.get('Entidad Federativa de nacimiento', '')).upper(),
+        'fech_lugar_nac': f"{dia}/{mes}/{anio} - {c.get('Entidad Federativa de nacimiento', '')}".upper(),
         'tel_cel': str(c.get('Número Celular', '')),
-        'com_telefonica': c.get('Compañia telefonica'),
-        'correo_elect': c.get('Correo Electrónico'),
-        'calle': c.get('Calle (solo nombre)'),
-        'num_ext_int': f"EXT: {c.get('Numero exterior', '')} INT: {c.get('Numero interior', '')}",
-        'colonia': c.get('Colonia acreditado'),
+        'com_telefonica': str(c.get('Compañia telefonica', '')).upper(),
+        'correo_elect': str(c.get('Correo Electrónico', '')).lower(),
+        'calle': calle.upper(),
+        'num_ext_int': f"EXT: {num_ext} INT: {num_int}".upper(),
+        'colonia': str(c.get('Colonia acreditado', '')).upper(),
         'codigo_postal': str(c.get('Código Postal', '')),
-        'alcaldia_mun': c.get('Municipio ó Alcaldía'),
-        'estado': c.get('Estado'),
-        'ciudad_poblacion': c.get('Ciudad o Población'),
+        'alcaldia_mun': str(c.get('Municipio ó Alcaldía', '')).upper(),
+        'estado': str(c.get('Estado', '')).upper(),
+        'ciudad_poblacion': str(c.get('Ciudad o Población', '')).upper(),
         'tel_casa': str(c.get('Teléfono de casa fijo o celular', '')),
         'años_residencia': str(c.get('Años de vivir en su domicilio', '')),
-        'ocupa_profesion': c.get('¿Qué puesto o actividad desempeñas en tu trabajo?'),
-        'nom-empresa': c.get('Nombre de la Empresa ó Institución'),
-        'giro_empresa': c.get('¿A que se dedica la empresa donde laboras?'),
-        'calle_empre': c.get('Calle trabajo (solo el nombre)'),
-        'num_ext_empre': str(c.get('Numero exterior trabajo', '')),
-        'colonia_empre': c.get('Colonia trabajo'),
-        'alcaldia_empresa': c.get('Municipio ó Alcaldía trabajo'),
-        'estado_empre': c.get('Estado trabajo'),
-        'codigo_post_empre': str(c.get('Código Postal trabajo', '')),
+        'ocupa_profesion': str(c.get('¿Qué puesto o actividad desempeñas en tu trabajo?', '')).upper(),
+        'nom-empresa': str(c.get('Nombre de la Empresa ó Institución', '')).upper(),
+        'giro_empresa': str(c.get('¿A que se dedica la empresa donde laboras?', '')).upper(),
+        'calle_empre': str(c.get('Calle trabajo (solo el nombre)', '')).upper(),
+        'num_ext_empre': str(c.get('Numero exterior trabajo', '')).upper(),
+        'colonia_empre': str(c.get('Colonia trabajo', '')).upper(),
+        'alcaldia_empresa': str(c.get('Municipio ó Alcaldía trabajo', '')).upper(),
+        'estado_empre': str(c.get('Estado trabajo', '')).upper(),
+        'codigo_post_empre': str(c.get('Código Postal trabajo', '')).upper(),
         'tel_oficina': str(c.get('Teléfono de oficina y extensión ó directo', '')),
-        'nom_jefe_inmediato': c.get('Nombre de tu Jefe Inmediato'),
+        'nom_jefe_inmediato': str(c.get('Nombre de tu Jefe Inmediato', '')).upper(),
         'años_empre': str(c.get('Antigüedad en el empleo, negocio ó jubilado ó pensionado años', '')),
         # Referencias
-        'ref1_nombre': f"{c.get('Nombre (solo nombre) referencia 1', '')} {c.get('Apellido Paterno (solo nombre) referencia 1', '')}",
-        'ref1_parentesco': c.get('Parentesco ref 1'),
+        'ref1_nombre': f"{c.get('Nombre (solo nombre) referencia 1', '')} {c.get('Apellido Paterno (solo nombre) referencia 1', '')}".upper(),
+        'ref1_parentesco': str(c.get('Parentesco ref 1', '')).upper(),
         'ref1_telefono': str(c.get('Teléfono de la Referencia 1', '')),
-        'ref1_ocupacion': c.get('Ocupacion de la referencia 1', ''),
-        'ref2_nombre': f"{c.get('Nombre (solo nombre) referencia 2', '')} {c.get('Apellido Paterno (solo nombre) referencia 2', '')}",
-        'ref2_parentesco': c.get('Parentesco ref 2'),
+        'ref1_ocupacion': str(c.get('Ocupacion de la referencia 1', '')).upper(),
+        'ref2_nombre': f"{c.get('Nombre (solo nombre) referencia 2', '')} {c.get('Apellido Paterno (solo nombre) referencia 2', '')}".upper(),
+        'ref2_parentesco': str(c.get('Parentesco ref 2', '')).upper(),
         'ref2_telefono': str(c.get('Teléfono de la Referencia 2', '')),
-        'ref2_ocupacion': c.get('Ocupacion de la referencia 2', ''),
-        'ref3_nombre': f"{c.get('Nombre (solo nombre) referencia 3', '')} {c.get('Apellido Paterno (solo nombre) referencia 3', '')}",
-        'ref3_parentesco': c.get('Parentesco ref 3'),
+        'ref2_ocupacion': str(c.get('Ocupacion de la referencia 2', '')).upper(),
+        'ref3_nombre': f"{c.get('Nombre (solo nombre) referencia 3', '')} {c.get('Apellido Paterno (solo nombre) referencia 3', '')}".upper(),
+        'ref3_parentesco': str(c.get('Parentesco ref 3', '')).upper(),
         'ref3_telefono': str(c.get('Teléfono de la Referencia 3', '')),
-        'ref3_ocupacion': c.get('Ocupacion de la referencia 3', ''),
+        'ref3_ocupacion': str(c.get('Ocupacion de la referencia 3', '')).upper(),
         # Campos Finales
         'final_nombre': nombre_completo_final,
         'final_nombre1': nombre_completo_final,
-        'final_rfc': c.get('RFC'),
+        'final_rfc': str(c.get('RFC', '')).upper(),
         'final_calle': direccion_completa,
-        'final_municipio': c.get('Municipio ó Alcaldía'),
-        'final_estado': c.get('Estado'),
+        'final_municipio': str(c.get('Municipio ó Alcaldía', '')).upper(),
+        'final_estado': str(c.get('Estado', '')).upper(),
         'final_telefono': str(c.get('Número Celular', '')),
-        'final_colonia': c.get('Colonia acreditado'),
+        'final_colonia': str(c.get('Colonia acreditado', '')).upper(),
         'final_codigo_postal': str(c.get('Código Postal', '')),
         'nom_vendedor': "LUIS FERNANDO MARTINEZ TREJO",
     }
 
-    # --- 3. PROCESO DE LLENADO ---
+    # 4. Proceso de llenado robusto
     ruta_plantilla = os.path.join("plantillas", "sol_stella.pdf")
-    try:
-        template = pdfrw.PdfReader(ruta_plantilla)
-    except Exception:
-        raise Exception(f"No se encontró la plantilla en {ruta_plantilla}")
+    template = pdfrw.PdfReader(ruta_plantilla)
 
     for page in template.pages:
         annotations = page.get('/Annots')
         if annotations:
             for ann in annotations:
-                nombre_campo = ann.get('/T')
-                if nombre_campo:
-                    nombre_campo = nombre_campo.replace(
-                        '(', '').replace(')', '')
-                    if nombre_campo in mapeo_stella:
-                        val = mapeo_stella[nombre_campo]
-                        val_str = str(val).upper() if val is not None else ""
-                        # Inyectar con codificación limpia para evitar paréntesis impresos
-                        ann.update(pdfrw.PdfDict(V=PdfString.encode(val_str)))
-                        if '/AP' in ann:
-                            del ann['/AP']
+                # IMPORTANTE: Filtrar por /Widget como en Nissan
+                if ann.get('/Subtype') == '/Widget':
+                    key = ann.get('/T')
+                    if key:
+                        # Limpiar nombre técnico del campo
+                        key = key.replace('(', '').replace(')', '')
 
-    # Configuración de visibilidad
+                        # Si el PDF usa nombres largos tipo 'f1_05[0].final_nombre[0]'
+                        # buscamos si nuestra clave está contenida al final del nombre
+                        for campo_pdf in mapeo_stella:
+                            if key == campo_pdf or key.endswith('.' + campo_pdf) or key.endswith(campo_pdf):
+                                val = mapeo_stella[campo_pdf]
+                                val_str = str(val).upper(
+                                ) if val is not None else ""
+
+                                # Inyectar con PdfString.encode para evitar paréntesis impresos
+                                ann.update(pdfrw.PdfDict(
+                                    V=PdfString.encode(val_str)))
+
+                                if '/AP' in ann:
+                                    del ann['/AP']
+                                break
+
+    # 5. Visibilidad y Generación
     if not template.Root.AcroForm:
         template.Root.AcroForm = pdfrw.PdfDict()
     template.Root.AcroForm.update(pdfrw.PdfDict(
         NeedAppearances=pdfrw.PdfObject('true')))
 
-    # Guardar en memoria
     pdf_bytes = BytesIO()
     pdfrw.PdfWriter().write(pdf_bytes, template)
     pdf_bytes.seek(0)
 
-    # Nombre dinámico para el archivo
     nombre_archivo = f"Solicitud_Stellantis_{str(c.get('RFC', 'S_N')).upper()}.pdf"
-
     return pdf_bytes, nombre_archivo
