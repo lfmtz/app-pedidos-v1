@@ -277,10 +277,10 @@ def generar_pdf_stellantis(datos_cliente):
         'ref3_telefono': str(c.get('Teléfono de la Referencia 3', '')),
         'ref3_ocupacion': str(c.get('Ocupacion de la referencia 3', '')).upper(),
         # Campos Finales
-        'final_nombre': nombre_completo_final,
+        'nom_final_sol': nombre_completo_final,
         'final_nombre1': nombre_completo_final,
         'final_rfc': str(c.get('RFC', '')).upper(),
-        'final_calle': direccion_completa,
+        'calle_final_sol': direccion_completa,
         'final_municipio': str(c.get('Municipio ó Alcaldía', '')).upper(),
         'final_estado': str(c.get('Estado', '')).upper(),
         'final_telefono': str(c.get('Número Celular', '')),
