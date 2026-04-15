@@ -228,6 +228,22 @@ def generar_pdf_stellantis(datos_cliente):
 
     # --- 2. MAPEO DE STELLANTIS USANDO TU ESTRUCTURA DE SHEETS ---
     # Relacionamos [Nombre Campo PDF] : [Valor de Google Sheets]
+
+    # 1. Creamos la variable del nombre completo primero para asegurar que no falle
+    nom = c.get('Nombre(s) acreditado', '').strip()
+    pat = c.get('Apellido Paterno acreditado', '').strip()
+    mat = c.get('Apellido Materno acreditado', '').strip()
+
+    calle = c.get('Calle (solo nombre)', '').strip()
+    num_ext = c.get('Numero exterior', '').strip()
+    num_int = c.get('Numero interior', '').strip()
+
+    # Concatenamos dirección con formato limpio
+    direccion_completa = f"{calle} EXT: {num_ext} INT: {num_int}".strip()
+
+    # Concatenamos con espacios limpios
+    nombre_completo_final = f"{nom} {pat} {mat}".strip().upper()
+
     mapeo_stella = {
         'nom_acre': c.get('Nombre(s) acreditado'),
         'ape_pat': c.get('Apellido Paterno acreditado'),
@@ -238,6 +254,7 @@ def generar_pdf_stellantis(datos_cliente):
         'estado_nacimiento': c.get('Entidad Federativa de nacimiento'),
         'fech_lugar_nac': f"{dia}/{mes}/{anio} - {c.get('Entidad Federativa de nacimiento', '')}",
         'tel_cel': str(c.get('Número Celular', '')),
+        'com_telefonica': c.get('Compañia telefonica'),
         'correo_elect': c.get('Correo Electrónico'),
         'calle': c.get('Calle (solo nombre)'),
         'num_ext_int': f"EXT: {c.get('Numero exterior', '')} INT: {c.get('Numero interior', '')}",
@@ -264,15 +281,26 @@ def generar_pdf_stellantis(datos_cliente):
         'ref1_nombre': f"{c.get('Nombre (solo nombre) referencia 1', '')} {c.get('Apellido Paterno (solo nombre) referencia 1', '')}",
         'ref1_parentesco': c.get('Parentesco ref 1'),
         'ref1_telefono': str(c.get('Teléfono de la Referencia 1', '')),
+        'ref1_ocupacion': c.get('Ocupacion de la referencia 1', ''),
         'ref2_nombre': f"{c.get('Nombre (solo nombre) referencia 2', '')} {c.get('Apellido Paterno (solo nombre) referencia 2', '')}",
         'ref2_parentesco': c.get('Parentesco ref 2'),
         'ref2_telefono': str(c.get('Teléfono de la Referencia 2', '')),
+        'ref2_ocupacion': c.get('Ocupacion de la referencia 2', ''),
+        'ref3_nombre': f"{c.get('Nombre (solo nombre) referencia 3', '')} {c.get('Apellido Paterno (solo nombre) referencia 3', '')}",
+        'ref3_parentesco': c.get('Parentesco ref 3'),
+        'ref3_telefono': str(c.get('Teléfono de la Referencia 3', '')),
+        'ref3_ocupacion': c.get('Ocupacion de la referencia 3', ''),
         # Campos Finales
-        'final_nombre': f"{c.get('Nombre(s) acreditado', '')} {c.get('Apellido Paterno acreditado', '')} {c.get('Apellido Materno acreditado', '')}",
+        'final_nombre': nombre_completo_final,
+        'final_nombre1': nombre_completo_final,
         'final_rfc': c.get('RFC'),
-        'final_calle': c.get('Calle (solo nombre)'),
+        'final_calle': direccion_completa,
+        'final_municipio': c.get('Municipio ó Alcaldía'),
+        'final_estado': c.get('Estado'),
+        'final_telefono': str(c.get('Número Celular', '')),
         'final_colonia': c.get('Colonia acreditado'),
-        'final_codigo_postal': str(c.get('Código Postal', ''))
+        'final_codigo_postal': str(c.get('Código Postal', '')),
+        'nom_vendedor': "LUIS FERNANDO MARTINEZ TREJO",
     }
 
     # --- 3. PROCESO DE LLENADO ---
