@@ -11,6 +11,7 @@ from modulos.sheets_db import (
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 from modulos.pdf_generator import generar_pdf_aviso_privacidad
+from modulos.pdf_generator import generar_pdf_stellantis
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
@@ -50,7 +51,6 @@ with tab1:
         else:
             st.warning("Por favor ingrese un RFC.")
 
-# --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
@@ -292,6 +292,36 @@ with tab2:
                         st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
 
                     st.balloons()
+
+        # --- AQUÍ EMPIEZA LO NUEVO ---
+        st.divider()
+        st.subheader("🖨️ Generación de Solicitudes")
+
+        # Selector de marca
+        marca_sol = st.radio("Marca de Solicitud:", [
+                             "Nissan", "Stellantis"], horizontal=True)
+
+        if st.session_state.get('datos_extraidos'):
+            if marca_sol == "Nissan":
+                if st.button("📄 Generar Solicitud Nissan", use_container_width=True):
+                    # Tu función original de Nissan (ajusta si devuelve buffer y nombre)
+                    pdf = generar_solicitud_pdf(
+                        st.session_state.datos_extraidos)
+                    st.download_button("📥 Descargar Solicitud Nissan",
+                                       data=pdf,
+                                       file_name=f"Solicitud_Nissan_{st.session_state.datos_extraidos.get('RFC:', 'CLIENTE')}.pdf",
+                                       use_container_width=True)
+
+            else:
+                if st.button("📄 Generar Solicitud Stellantis", use_container_width=True):
+                    # Tu nueva función de Stellantis
+                    pdf_stella, nombre_stella = generar_pdf_stellantis(
+                        st.session_state.datos_extraidos)
+                    st.download_button("📥 Descargar Stellantis",
+                                       data=pdf_stella,
+                                       file_name=nombre_stella,
+                                       use_container_width=True)
+        # --- AQUÍ TERMINA LO NUEVO ---
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")

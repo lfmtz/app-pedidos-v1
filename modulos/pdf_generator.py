@@ -1,6 +1,7 @@
 import pdfrw
 from io import BytesIO
 import os
+from pdfrw.objects.pdfstring import PdfString
 from modulos.procesador_nombres import concatenar_nombre_cliente
 
 
@@ -202,3 +203,113 @@ def generar_pdf_aviso_privacidad(datos_cliente):
     nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_')}.pdf"
 
     return output_buffer, nombre_descarga
+
+
+def generar_pdf_stellantis(datos_cliente):
+    # c es el diccionario con los datos del cliente traídos de Google Sheets
+    c = datos_cliente
+    from pdfrw.objects.pdfstring import PdfString
+
+    # --- 1. LÓGICA DE FECHAS (Igual que en Nissan para coherencia) ---
+    fecha_nac = str(c.get('Fecha de Nacimiento', ''))
+    dia, mes, anio = "", "", ""
+    if "/" in fecha_nac:
+        partes = fecha_nac.split("/")
+        if len(partes) == 3:
+            dia, mes, anio = partes[0], partes[1], partes[2]
+
+    fecha_ingreso = str(
+        c.get('Fecha de ingreso a la empresa ó institución', ''))
+    dia_ing, mes_ing, anio_ing = "", "", ""
+    if "/" in fecha_ingreso:
+        p_ing = fecha_ingreso.split("/")
+        if len(p_ing) == 3:
+            dia_ing, mes_ing, anio_ing = p_ing[0], p_ing[1], p_ing[2]
+
+    # --- 2. MAPEO DE STELLANTIS USANDO TU ESTRUCTURA DE SHEETS ---
+    # Relacionamos [Nombre Campo PDF] : [Valor de Google Sheets]
+    mapeo_stella = {
+        'nom_acre': c.get('Nombre(s) acreditado'),
+        'ape_pat': c.get('Apellido Paterno acreditado'),
+        'ape_mat': c.get('Apellido Materno acreditado'),
+        'rfc': c.get('RFC'),
+        'curp': c.get('CURP'),
+        'nacionalidad': c.get('País de Nacimiento'),
+        'estado_nacimiento': c.get('Entidad Federativa de nacimiento'),
+        'fech_lugar_nac': f"{dia}/{mes}/{anio} - {c.get('Entidad Federativa de nacimiento', '')}",
+        'tel_cel': str(c.get('Número Celular', '')),
+        'correo_elect': c.get('Correo Electrónico'),
+        'calle': c.get('Calle (solo nombre)'),
+        'num_ext_int': f"EXT: {c.get('Numero exterior', '')} INT: {c.get('Numero interior', '')}",
+        'colonia': c.get('Colonia acreditado'),
+        'codigo_postal': str(c.get('Código Postal', '')),
+        'alcaldia_mun': c.get('Municipio ó Alcaldía'),
+        'estado': c.get('Estado'),
+        'ciudad_poblacion': c.get('Ciudad o Población'),
+        'tel_casa': str(c.get('Teléfono de casa fijo o celular', '')),
+        'años_residencia': str(c.get('Años de vivir en su domicilio', '')),
+        'ocupa_profesion': c.get('¿Qué puesto o actividad desempeñas en tu trabajo?'),
+        'nom-empresa': c.get('Nombre de la Empresa ó Institución'),
+        'giro_empresa': c.get('¿A que se dedica la empresa donde laboras?'),
+        'calle_empre': c.get('Calle trabajo (solo el nombre)'),
+        'num_ext_empre': str(c.get('Numero exterior trabajo', '')),
+        'colonia_empre': c.get('Colonia trabajo'),
+        'alcaldia_empresa': c.get('Municipio ó Alcaldía trabajo'),
+        'estado_empre': c.get('Estado trabajo'),
+        'codigo_post_empre': str(c.get('Código Postal trabajo', '')),
+        'tel_oficina': str(c.get('Teléfono de oficina y extensión ó directo', '')),
+        'nom_jefe_inmediato': c.get('Nombre de tu Jefe Inmediato'),
+        'años_empre': str(c.get('Antigüedad en el empleo, negocio ó jubilado ó pensionado años', '')),
+        # Referencias
+        'ref1_nombre': f"{c.get('Nombre (solo nombre) referencia 1', '')} {c.get('Apellido Paterno (solo nombre) referencia 1', '')}",
+        'ref1_parentesco': c.get('Parentesco ref 1'),
+        'ref1_telefono': str(c.get('Teléfono de la Referencia 1', '')),
+        'ref2_nombre': f"{c.get('Nombre (solo nombre) referencia 2', '')} {c.get('Apellido Paterno (solo nombre) referencia 2', '')}",
+        'ref2_parentesco': c.get('Parentesco ref 2'),
+        'ref2_telefono': str(c.get('Teléfono de la Referencia 2', '')),
+        # Campos Finales
+        'final_nombre': f"{c.get('Nombre(s) acreditado', '')} {c.get('Apellido Paterno acreditado', '')} {c.get('Apellido Materno acreditado', '')}",
+        'final_rfc': c.get('RFC'),
+        'final_calle': c.get('Calle (solo nombre)'),
+        'final_colonia': c.get('Colonia acreditado'),
+        'final_codigo_postal': str(c.get('Código Postal', ''))
+    }
+
+    # --- 3. PROCESO DE LLENADO ---
+    ruta_plantilla = os.path.join("plantillas", "sol_stella.pdf")
+    try:
+        template = pdfrw.PdfReader(ruta_plantilla)
+    except Exception:
+        raise Exception(f"No se encontró la plantilla en {ruta_plantilla}")
+
+    for page in template.pages:
+        annotations = page.get('/Annots')
+        if annotations:
+            for ann in annotations:
+                nombre_campo = ann.get('/T')
+                if nombre_campo:
+                    nombre_campo = nombre_campo.replace(
+                        '(', '').replace(')', '')
+                    if nombre_campo in mapeo_stella:
+                        val = mapeo_stella[nombre_campo]
+                        val_str = str(val).upper() if val is not None else ""
+                        # Inyectar con codificación limpia para evitar paréntesis impresos
+                        ann.update(pdfrw.PdfDict(V=PdfString.encode(val_str)))
+                        if '/AP' in ann:
+                            del ann['/AP']
+
+    # Configuración de visibilidad
+    if not template.Root.AcroForm:
+        template.Root.AcroForm = pdfrw.PdfDict()
+    template.Root.AcroForm.update(pdfrw.PdfDict(
+        NeedAppearances=pdfrw.PdfObject('true')))
+
+    # Guardar en memoria
+    pdf_bytes = BytesIO()
+    pdfrw.PdfWriter().write(pdf_bytes, template)
+    pdf_bytes.seek(0)
+
+    # Nombre dinámico para el archivo
+    nombre_archivo = f"Solicitud_Stellantis_{str(c.get('RFC', 'S_N')).upper()}.pdf"
+
+    return pdf_bytes, nombre_archivo
