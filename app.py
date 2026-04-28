@@ -6,7 +6,8 @@ from modulos.sheets_db import (
     buscar_contacto_externo,
     obtener_datos_pedido_por_id,
     obtener_url_impresion,
-    obtener_url_pld  # <--- AGREGA ESTA LÍNEA AQUÍ
+    obtener_url_pld,
+    inyectar_datos_generico
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -80,11 +81,6 @@ with tab1:
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
-
-    # 1. Botón de reset manual en sidebar
-    if st.sidebar.button("♻️ Limpiar Formulario / Nuevo Registro"):
-        st.session_state.datos_extraidos = {}
-        st.rerun()
 
     # 2. El Radio Button
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
@@ -268,17 +264,27 @@ with tab2:
                     datos_validados[k] = st.text_input(
                         f"Validar {k}", value=datos.get(k, ""))
 
-        # --- BOTÓN DE CIERRE ---
-        if st.button("Confirmar y Guardar Cambios"):
+        # --- AQUÍ VA EL NUEVO FRAGMENTO: SELECCIÓN DE DESTINO ---
+        st.divider()
+        st.subheader("📍 Selección de Destino de la Información")
+
+        # Radio button para decidir la hoja de destino
+        destino_hoja = st.radio(
+            "¿A qué pestaña deseas enviar esta información?",
+            ["datos_pedido", "REPRESENTANTE_LEGAL"],
+            horizontal=True,
+            key="radio_destino_constancia"
+        )
+
+        # --- BOTÓN DE CIERRE (MODIFICADO) ---
+        if st.button(f"Confirmar e Inyectar en {destino_hoja}"):
             if ident_sel == "SELECCIONE UNA OPCIÓN":
                 st.error("❌ Por favor, selecciona un Tipo de Identificación.")
             else:
-                # DETECTAR SI ES EDICIÓN:
-                # Si 'datos' tiene 'ID_Seguimiento', significa que cargamos uno existente.
                 id_a_editar = datos.get("ID_Seguimiento")
 
-                with st.spinner("Guardando en Sheets..."):
-                    # Consolidación final con llaves idénticas al mapeo
+                with st.spinner(f"Guardando en {destino_hoja}..."):
+                    # Consolidación final
                     datos_finales = {**datos_validados}
                     datos_finales.update({
                         "Identificaciones": ident_sel, "EMISION": emis_sel, "FOLIO": folio_val,
@@ -300,24 +306,41 @@ with tab2:
                         "ACCESORIOS": acc_val if acc_val > 0 else "",
                         "TOMA DE AUTO": toma_auto_val,
                         "PRECIO DE TOMA": precio_toma_val if precio_toma_val > 0 else "",
-                        "GERENTE DE AUTOS SEMINUEVOS": gerente_semi,  # <--- Corregido con "AUTOS"
+                        "GERENTE DE AUTOS SEMINUEVOS": gerente_semi,
                         "GERENTE DE VENTAS": gerente_ventas,
                         "USO_CFDI": uso_cfdi,
                         "MET_PAGO": met_pago,
                         "ANTICIPO": anticipo
                     })
 
-                    # LLAMADA A LA FUNCIÓN (Enviamos el ID si existe)
-                    # Nota: Debes ajustar tu función en sheets_db.py para que acepte este segundo parámetro
+                    # 2. Primero generamos o recuperamos el ID
+                    # Esto es importante para que 'datos_finales' ya tenga el ID asignado
                     id_gen = guardar_pedido_y_actualizar_t2(
                         datos_finales, id_actualizar=id_a_editar)
-                    if id_a_editar:
-                        st.success(
-                            f"✅ Pedido {id_a_editar} ACTUALIZADO correctamente.")
+                    # <--- Esto asegura que el ID vaya al mapa
+                    datos_finales["ID_Seguimiento"] = id_gen
+
+                    # 3. Decidimos el destino final
+                    if destino_hoja == "REPRESENTANTE_LEGAL":
+                        # Se envía a la pestaña de representante (ahora con el ID incluido)
+                        exito = inyectar_datos_generico(
+                            datos_finales, "REPRESENTANTE_LEGAL")
+                        if exito:
+                            st.success(
+                                f"✅ Datos del Representante guardados con ID: {id_gen}")
                     else:
-                        st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
+                        # Si es datos_pedido, 'guardar_pedido_y_actualizar_t2' ya hizo el trabajo arriba
+                        if id_a_editar:
+                            st.success(f"✅ Pedido {id_a_editar} ACTUALIZADO.")
+                        else:
+                            st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
 
                     st.balloons()
+        # --- AQUÍ COLOCAMOS EL BOTÓN DE LIMPIAR (AL FINAL) ---
+        st.write("---")  # Una línea divisora para separar del botón de guardado
+        if st.button("♻️ Limpiar Formulario / Nuevo Registro", use_container_width=True):
+            st.session_state.datos_extraidos = {}
+            st.rerun()
 
         st.divider()
         st.subheader("🖨️ Formatos para Impresión")

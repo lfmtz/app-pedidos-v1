@@ -252,3 +252,26 @@ def obtener_url_pld(parte):
         "&right_margin=0.20"    # Margen derecho
     )
     return url
+
+
+def inyectar_datos_generico(datos, nombre_hoja):
+    try:
+        client = get_client()
+        doc = client.open("FORMATO DE PEDIDO_26")
+        sheet = doc.worksheet(nombre_hoja)
+
+        cabeceros = sheet.row_values(1)
+        nueva_fila = [""] * len(cabeceros)
+
+        for i, nombre_columna in enumerate(cabeceros):
+            # Ahora buscará ID_Seguimiento, RFC:, etc.
+            if nombre_columna in datos:
+                valor = datos[nombre_columna]
+                nueva_fila[i] = str(valor).upper() if valor else ""
+
+        sheet.append_row(nueva_fila)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error en {nombre_hoja}: {e}")
+        return False
