@@ -50,27 +50,34 @@ def procesar_texto_a_diccionario(file_stream):
     # He renombrado las llaves para que coincidan con los encabezados estándar
     # y asegurar que la inyección no falle por nombres diferentes.
 
+    # --- RETORNO DE DICCIONARIO CON TODAS LAS LLAVES ---
     return {
-        # Identidad
+        # 1. Identidad Persona Física
         "RFC:": extraer_valor("RFC:"),
         "CURP:": extraer_valor("CURP:"),
         "Nombre (s):": extraer_valor("Nombre (s):"),
         "Primer Apellido:": extraer_valor("Primer Apellido:"),
         "Segundo Apellido:": extraer_valor("Segundo Apellido:"),
 
-        # Domicilio (Columna Izquierda)
+        # 2. Identidad Persona Moral
+        "Denominación/Razón Social:": extraer_valor("Denominación/Razón Social:"),
+        "Régimen Capital:": extraer_valor("Capital:"),
+        "Nombre Comercial:": extraer_valor("Comercial:"),
+        "Fecha inicio de operaciones:": extraer_valor("operaciones:"),
+
+        # 3. Domicilio (Columna Izquierda - Con límite de MITAD_PAGINA)
         "Código Postal:": extraer_valor("Código Postal:", max_x=MITAD_PAGINA),
         "Nombre de Vialidad:": extraer_valor("Nombre de Vialidad:", max_x=MITAD_PAGINA),
         "Número Interior:": extraer_valor("Número Interior:", max_x=MITAD_PAGINA),
         "Nombre de la Localidad:": extraer_valor("Nombre de la Localidad:", max_x=MITAD_PAGINA),
         "Nombre de la Entidad Federativa:": extraer_valor("Federativa:", max_x=MITAD_PAGINA),
 
-        # Domicilio (Columna Derecha)
+        # 4. Domicilio (Columna Derecha)
         "Tipo de Vialidad:": extraer_valor("Tipo de Vialidad:"),
         "Número Exterior:": extraer_valor("Número Exterior:"),
         "Nombre de la Colonia:": extraer_valor("Nombre de la Colonia:"),
-        # ✅ CORRECCIÓN: Se ajustó el nombre de la llave para que coincida EXACTO con el mapeo de Sheets
         "Nombre del Municipio o Demarcación Territorial:": extraer_valor("Territorial:"),
+        "Entre Calle:": extraer_valor("Entre Calle:")
     }
 
 

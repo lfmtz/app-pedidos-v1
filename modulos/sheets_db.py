@@ -95,16 +95,23 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     # --- 3. GUARDADO EN HOJA DE DATOS ---
     try:
         if id_actualizar and fila_destino <= len(todas_las_filas):
-            # ACTUALIZAR fila existente
-            # Cambiamos AT (46) por AW (49) para que incluya los nuevos campos
             rango_update = f"A{fila_destino}:AW{fila_destino}"
             sheet_pedido.update(rango_update, [fila_a_inyectar])
         else:
-            # INSERTAR fila nueva
             sheet_pedido.append_row(fila_a_inyectar)
+
+        # --- 4. ACTUALIZACIÓN CELDA T2 ---
+        try:
+            sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
+        except:
+            sheet_formato.update('T2', [[id_seguimiento]])
+
+        return id_seguimiento  # <--- CRÍTICO: Debe estar fuera de los mini-try internos
+
     except Exception as e:
         import streamlit as st
-        st.error(f"Error al guardar datos: {e}")
+        st.error(f"❌ Error al guardar datos: {e}")
+        return None  # Si falla, devuelve None para que app.py sepa que hubo error
 
     # --- 4. ACTUALIZACIÓN CELDA T2 (Para impresión) ---
     try:
@@ -195,7 +202,8 @@ def obtener_url_impresion(pestana):
     # Pedido Nissan: 211566386
     gids = {
         "Pedido": "211566386",
-        "pedido_stellantis": "1351176481"
+        "pedido_stellantis": "1351176481",
+        "pedido_stellantis_pm": "92238292"
     }
 
     gid = gids.get(pestana, "211566386")
@@ -230,10 +238,16 @@ def obtener_url_pld(parte):
     gids = {
         "PLD_1": "117614662",
         "PLD_2": "486590056",
-        "PLD_3": "1210346388"
+        "PLD_3": "1210346388",
+        "PLD_1_RL": "568290328",   # <--- GID Actualizado
+        "PLD_2_RL": "27081065",    # <--- GID Actualizado
+        "PLD_3_RL": "3155416",     # <--- GID Actualizado
+        "PLD_PM1": "1399473913",   # <--- GID Actualizado
+        "PLD_PM2": "958456137",    # <--- GID Actualizado
+        "PLD_PM3": "1201767317"    # <--- GID Actualizado
     }
 
-    gid = gids.get(parte)
+    gid = gids.get(parte, "117614662")
 
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
@@ -275,3 +289,48 @@ def inyectar_datos_generico(datos, nombre_hoja):
         import streamlit as st
         st.error(f"Error en {nombre_hoja}: {e}")
         return False
+
+
+def actualizar_ultimo_registro_hoja(nombre_hoja, id_seguimiento):
+    """Actualiza la celda T2 de la hoja especificada."""
+    try:
+        client = get_client()
+        doc = client.open("FORMATO DE PEDIDO_26")
+        hoja = doc.worksheet(nombre_hoja)
+        hoja.update_acell('T2', id_seguimiento)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"❌ Error en puntero T2 ({nombre_hoja}): {e}")
+        return False
+
+
+def actualizar_campo_pld_representante(id_seguimiento):
+    """Actualiza la celda H1 de la hoja PLD_1_RL."""
+    try:
+        client = get_client()
+        doc = client.open("FORMATO DE PEDIDO_26")
+        hoja_pld = doc.worksheet("PLD_1_RL")
+        hoja_pld.update_acell('H1', id_seguimiento)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"❌ Error en puntero H1 (PLD_1_RL): {e}")
+        return False
+
+
+def generar_id_especifico(nombre_hoja, prefijo):
+    """
+    Cuenta los registros en una hoja específica y genera un nuevo ID.
+    Ejemplo: PM-005, RL-010
+    """
+    try:
+        client = get_client()
+        sheet = client.open("FORMATO DE PEDIDO_26").worksheet(nombre_hoja)
+        # Contamos cuántas filas hay (menos el encabezado)
+        total_filas = len(sheet.get_all_values())
+        nuevo_id = f"{prefijo}-{total_filas:03d}"
+        return nuevo_id
+    except Exception as e:
+        print(f"Error al generar ID para {nombre_hoja}: {e}")
+        return f"{prefijo}-ERR"

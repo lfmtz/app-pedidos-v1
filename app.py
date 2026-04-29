@@ -7,7 +7,10 @@ from modulos.sheets_db import (
     obtener_datos_pedido_por_id,
     obtener_url_impresion,
     obtener_url_pld,
-    inyectar_datos_generico
+    inyectar_datos_generico,
+    actualizar_ultimo_registro_hoja,
+    actualizar_campo_pld_representante,
+    generar_id_especifico
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -268,24 +271,30 @@ with tab2:
         st.divider()
         st.subheader("📍 Selección de Destino de la Información")
 
-        # Radio button para decidir la hoja de destino
+        # 1. Agregamos la nueva opción al Radio Button
         destino_hoja = st.radio(
             "¿A qué pestaña deseas enviar esta información?",
-            ["datos_pedido", "REPRESENTANTE_LEGAL"],
+            ["datos_pedidos", "REPRESENTANTE_LEGAL", "PERSONA_MORAL"],
             horizontal=True,
             key="radio_destino_constancia"
         )
 
-        # --- BOTÓN DE CIERRE (MODIFICADO) ---
+        # --- BOTÓN DE CIERRE ---
+        # --- BOTÓN DE CIERRE (ESTRUCTURA FINAL REFORZADA) ---
+        # --- BOTÓN DE CIERRE (VERSIÓN FINAL OPTIMIZADA Y SIN DUPLICADOS) ---
         if st.button(f"Confirmar e Inyectar en {destino_hoja}"):
-            if ident_sel == "SELECCIONE UNA OPCIÓN":
-                st.error("❌ Por favor, selecciona un Tipo de Identificación.")
+            # AQUÍ VA EL PRIMER BLOQUE (La Validación)
+            if destino_hoja == "datos_pedidos" and ident_sel == "SELECCIONE UNA OPCIÓN":
+                st.error(
+                    "❌ Para registros de Personas Físicas es obligatorio seleccionar un Tipo de Identificación.")
+
             else:
-                id_a_editar = datos.get("ID_Seguimiento")
+                datos_del_ocr = st.session_state.get("datos_extraidos", {})
+                id_a_editar = datos_del_ocr.get("ID_Seguimiento")
 
                 with st.spinner(f"Guardando en {destino_hoja}..."):
-                    # Consolidación final
-                    datos_finales = {**datos_validados}
+                    # 1. Consolidación total de datos
+                    datos_finales = {**datos_del_ocr, **datos_validados}
                     datos_finales.update({
                         "Identificaciones": ident_sel, "EMISION": emis_sel, "FOLIO": folio_val,
                         "OCUPACION": ocupacion_val, "Auto": auto_val, "AÑO": año_val,
@@ -313,29 +322,75 @@ with tab2:
                         "ANTICIPO": anticipo
                     })
 
-                    # 2. Primero generamos o recuperamos el ID
-                    # Esto es importante para que 'datos_finales' ya tenga el ID asignado
-                    id_gen = guardar_pedido_y_actualizar_t2(
-                        datos_finales, id_actualizar=id_a_editar)
-                    # <--- Esto asegura que el ID vaya al mapa
-                    datos_finales["ID_Seguimiento"] = id_gen
+                    # --- AQUÍ EMPIEZA EL BLOQUE CORREGIDO ---
 
-                    # 3. Decidimos el destino final
-                    if destino_hoja == "REPRESENTANTE_LEGAL":
-                        # Se envía a la pestaña de representante (ahora con el ID incluido)
-                        exito = inyectar_datos_generico(
-                            datos_finales, "REPRESENTANTE_LEGAL")
-                        if exito:
-                            st.success(
-                                f"✅ Datos del Representante guardados con ID: {id_gen}")
-                    else:
-                        # Si es datos_pedido, 'guardar_pedido_y_actualizar_t2' ya hizo el trabajo arriba
-                        if id_a_editar:
-                            st.success(f"✅ Pedido {id_a_editar} ACTUALIZADO.")
+                try:
+                    # 1. RUTA PARA PERSONA FÍSICA (Base General)
+                    if destino_hoja == "datos_pedidos":
+                        id_gen = guardar_pedido_y_actualizar_t2(
+                            datos_finales, id_actualizar=id_a_editar)
+                        if id_gen:
+                            actualizar_ultimo_registro_hoja("Pedido", id_gen)
+                            actualizar_ultimo_registro_hoja(
+                                "pedido_stellantis", id_gen)
+                            st.success(f"✅ Registro Físico Exitoso: {id_gen}")
+                            st.balloons()
                         else:
-                            st.success(f"✅ Nuevo Pedido {id_gen} registrado.")
+                            st.error("🛑 Error al guardar en la base general.")
 
-                    st.balloons()
+                    # 2. RUTA PARA PERSONA MORAL (Base Independiente)
+                    elif destino_hoja == "PERSONA_MORAL":
+                        # --- GENERACIÓN DE ID ESPECÍFICO ---
+                        if not id_a_editar:
+                            id_gen = generar_id_especifico(
+                                "PERSONA_MORAL", "PM")
+                            datos_finales["ID_Seguimiento"] = id_gen
+                        else:
+                            id_gen = id_a_editar
+
+                        datos_para_sheets = {
+                            k: v for k, v in datos_finales.items() if str(v).strip() != ""}
+                        exito = inyectar_datos_generico(
+                            datos_para_sheets, "PERSONA_MORAL")
+
+                        if exito:
+                            actualizar_ultimo_registro_hoja(
+                                "pedido_stellantis_pm", id_gen)
+                            st.success(
+                                f"🏢 Registro de Empresa Guardado con ID: {id_gen}")
+                            st.balloons()
+                        else:
+                            st.error(
+                                "❌ Error al inyectar en la pestaña PERSONA_MORAL.")
+
+                    # 3. RUTA PARA REPRESENTANTE LEGAL (Base Independiente)
+                    elif destino_hoja == "REPRESENTANTE_LEGAL":
+                        # --- GENERACIÓN DE ID ESPECÍFICO ---
+                        if not id_a_editar:
+                            id_gen = generar_id_especifico(
+                                "REPRESENTANTE_LEGAL", "RL")
+                            datos_finales["ID_Seguimiento"] = id_gen
+                        else:
+                            id_gen = id_a_editar
+
+                        datos_para_sheets = {
+                            k: v for k, v in datos_finales.items() if str(v).strip() != ""}
+                        exito = inyectar_datos_generico(
+                            datos_para_sheets, "REPRESENTANTE_LEGAL")
+
+                        if exito:
+                            actualizar_campo_pld_representante(id_gen)
+                            st.success(
+                                f"⚖️ Registro de Representante Guardado con ID: {id_gen}")
+                            st.balloons()
+                        else:
+                            st.error(
+                                "❌ Error al inyectar en la pestaña REPRESENTANTE_LEGAL.")
+
+                except Exception as e:
+                    st.error(
+                        f"🛑 Ocurrió un error inesperado durante la inyección: {e}")
+
         # --- AQUÍ COLOCAMOS EL BOTÓN DE LIMPIAR (AL FINAL) ---
         st.write("---")  # Una línea divisora para separar del botón de guardado
         if st.button("♻️ Limpiar Formulario / Nuevo Registro", use_container_width=True):
@@ -367,6 +422,44 @@ with tab2:
         with c_pld3:
             st.link_button("📄 PLD 3", obtener_url_pld(
                 "PLD_3"), use_container_width=True)
+
+        # --- SECCIÓN EXCLUSIVA PARA PERSONAS MORALES ---
+        st.write("---")
+        st.subheader("🏢 Área de Impresión: Empresas y Representantes")
+
+        # Usamos contenedores expandibles para no saturar la vista
+        exp_pm = st.expander(
+            "📄 Formatos para la Empresa (Persona Moral)", expanded=True)
+        with exp_pm:
+            col_pm1, col_pm2 = st.columns(2)
+            with col_pm1:
+                # Botón para el Pedido específico de Persona Moral
+                st.link_button("🚗 Imprimir Pedido EMPRESA (PM)",
+                               obtener_url_impresion("pedido_stellantis_pm"),
+                               use_container_width=True, type="primary")
+            with col_pm2:
+                st.caption("Documentación PLD Empresa")
+                c_pld_m1, c_pld_m2, c_pld_m3 = st.columns(3)
+                # Aquí usamos los GIDs que corresponden a los PLD de Persona Moral
+                c_pld_m1.link_button("📋 PM 1", obtener_url_pld(
+                    "PLD_PM1"), use_container_width=True)
+                c_pld_m2.link_button("📋 PM 2", obtener_url_pld(
+                    "PLD_PM2"), use_container_width=True)
+                c_pld_m3.link_button("📋 PM 3", obtener_url_pld(
+                    "PLD_PM3"), use_container_width=True)
+
+        exp_rl = st.expander(
+            "⚖️ Formatos para el Representante Legal", expanded=True)
+        with exp_rl:
+            st.caption("Prevención de Lavado de Dinero - Representante")
+            c_rl1, c_rl2, c_rl3 = st.columns(3)
+            # Botones para los PLD específicos del Representante (Celda H1)
+            c_rl1.link_button("👤 PLD RL 1", obtener_url_pld(
+                "PLD_1_RL"), use_container_width=True)
+            c_rl2.link_button("👤 PLD RL 2", obtener_url_pld(
+                "PLD_2_RL"), use_container_width=True)
+            c_rl3.link_button("👤 PLD RL 3", obtener_url_pld(
+                "PLD_3_RL"), use_container_width=True)
 
         # El botón solo aparece si ya subiste la constancia y el OCR leyó los datos
         # --- SECCIÓN: AVISO DE PRIVACIDAD STELLA MOTORS ---
