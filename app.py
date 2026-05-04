@@ -460,6 +460,46 @@ with tab2:
                 "PLD_2_RL"), use_container_width=True)
             c_rl3.link_button("👤 PLD RL 3", obtener_url_pld(
                 "PLD_3_RL"), use_container_width=True)
+        # ... (Código anterior de tu formulario o validación)
+
+        st.write("---")  # Tu línea divisoria actual
+
+# --- APARTADO DE IMPRESIONES STELLANTIS ---
+    with st.expander("📂 Constancias e Impresiones Stellantis (PF / PM / RL)"):
+
+        # SECCIÓN PERSONA FÍSICA
+        st.subheader("👤 Persona Física - Stellantis")
+        col_pf1, col_pf2 = st.columns(2)
+        with col_pf1:
+            st.link_button("📄 Imprimir Parte 1 (PF)", obtener_url_pld(
+                "PF_STELLANTIS_1"), use_container_width=True)
+        with col_pf2:
+            st.link_button("📄 Imprimir Parte 2 (PF)", obtener_url_pld(
+                "PF_STELLANTIS_2"), use_container_width=True)
+
+        st.divider()
+
+        # SECCIÓN PERSONA MORAL
+        st.subheader("🏢 Persona Moral - Stellantis")
+        col_pm1, col_pm2 = st.columns(2)
+        with col_pm1:
+            st.link_button("📄 Imprimir Parte 1 (PM)", obtener_url_pld(
+                "PM_STELLANTIS_1"), use_container_width=True)
+        with col_pm2:
+            st.link_button("📄 Imprimir Parte 2 (PM)", obtener_url_pld(
+                "PM_STELLANTIS_2"), use_container_width=True)
+
+        st.divider()
+
+        # SECCIÓN REPRESENTANTE LEGAL
+        st.subheader("⚖️ Representante Legal - Stellantis")
+        col_rl1, col_rl2 = st.columns(2)
+        with col_rl1:
+            st.link_button("👤 Imprimir Parte 1 (RL)", obtener_url_pld(
+                "PF_STELLANTIS_RL_1"), use_container_width=True)
+        with col_rl2:
+            st.link_button("👤 Imprimir Parte 2 (RL)", obtener_url_pld(
+                "PF_STELLANTIS_RL_2"), use_container_width=True)
 
         # El botón solo aparece si ya subiste la constancia y el OCR leyó los datos
         # --- SECCIÓN: AVISO DE PRIVACIDAD STELLA MOTORS ---

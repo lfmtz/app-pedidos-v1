@@ -239,12 +239,18 @@ def obtener_url_pld(parte):
         "PLD_1": "117614662",
         "PLD_2": "486590056",
         "PLD_3": "1210346388",
-        "PLD_1_RL": "568290328",   # <--- GID Actualizado
-        "PLD_2_RL": "27081065",    # <--- GID Actualizado
-        "PLD_3_RL": "3155416",     # <--- GID Actualizado
-        "PLD_PM1": "1399473913",   # <--- GID Actualizado
-        "PLD_PM2": "958456137",    # <--- GID Actualizado
-        "PLD_PM3": "1201767317"    # <--- GID Actualizado
+        "PLD_1_RL": "568290328",   # <--- GID Nissan
+        "PLD_2_RL": "27081065",    # <--- GID Nissan
+        "PLD_3_RL": "3155416",     # <--- GID Nissan
+        "PLD_PM1": "1399473913",   # <--- GID Nissan
+        "PLD_PM2": "958456137",    # <--- GID Nissan
+        "PLD_PM3": "1201767317",    # <--- GID Nissan
+        "PF_STELLANTIS_1": "794707996",      # Stellantis Persona Física Parte 1
+        "PF_STELLANTIS_2": "1196692696",     # Stellantis Persona Física Parte 2
+        "PF_STELLANTIS_RL_1": "1023130744",  # Stellantis Representante Legal Parte 1
+        "PF_STELLANTIS_RL_2": "885241452",   # Stellantis Representante Legal Parte 2
+        "PM_STELLANTIS_1": "1148369144",     # Stellantis Persona Moral Parte 1
+        "PM_STELLANTIS_2": "1897580362"      # Stellantis Persona Moral Parte 2
     }
 
     gid = gids.get(parte, "117614662")
