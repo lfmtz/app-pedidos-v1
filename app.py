@@ -10,7 +10,9 @@ from modulos.sheets_db import (
     inyectar_datos_generico,
     actualizar_ultimo_registro_hoja,
     actualizar_campo_pld_representante,
-    generar_id_especifico
+    generar_id_especifico,
+    obtener_representantes_legales,
+    actualizar_representante_en_pm_stellantis
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -171,6 +173,15 @@ with tab2:
             ocupacion_val = st.text_input(
                 "Ocupación:", value=datos.get("OCUPACION", ""))
 
+        # --- Campos Opcionales para Persona Moral ---
+        col_pm1, col_pm2, col_pm3 = st.columns(3)
+        with col_pm1:
+            fecha_rpp = st.text_input("Fecha de RPP (Opcional):", value=datos.get("Fecha de RPP", ""))
+        with col_pm2:
+            fecha_poder = st.text_input("Fecha del Poder (Opcional):", value=datos.get("Fecha del Poder", ""))
+        with col_pm3:
+            tel_emp = st.text_input("Teléfono Emp (Opcional):", value=datos.get("Telefono Emp", ""))
+
         # --- SECCIÓN 2: UNIDAD Y VENTA ---
         st.subheader("🚗 Detalles de la Unidad y Financiamiento")
         col_a1, col_a2, col_a3, col_a4 = st.columns(4)
@@ -259,7 +270,7 @@ with tab2:
             datos_validados = {}
             # Filtrar llaves que no son de formulario interno
             llaves_sat = [k for k in datos.keys() if k not in fin_opciones + ["ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO", "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades", "Monto a Financiar",
-                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO", "ANTICIPO"]]
+                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp"]]
 
             cols_sat = st.columns(2)
             for i, k in enumerate(llaves_sat):
@@ -278,6 +289,33 @@ with tab2:
             horizontal=True,
             key="radio_destino_constancia"
         )
+
+        id_rep_seleccionado = None
+        if destino_hoja == "PERSONA_MORAL":
+            st.info("👥 Selecciona el Representante Legal para vincular a esta Empresa:")
+            with st.spinner("Cargando representantes..."):
+                representantes = obtener_representantes_legales()
+            
+            if representantes:
+                opciones_reps = ["Seleccione un representante..."]
+                mapeo_reps = {}
+                for rep in representantes:
+                    id_rep = str(rep.get("ID_Seguimiento", ""))
+                    nombre = str(rep.get("Nombre (s):", ""))
+                    ap1 = str(rep.get("Primer Apellido:", ""))
+                    ap2 = str(rep.get("Segundo Apellido:", ""))
+                    rfc = str(rep.get("RFC:", ""))
+                    
+                    if id_rep:
+                        texto_mostrar = f"{id_rep} - {nombre} {ap1} {ap2} - RFC: {rfc}".strip()
+                        opciones_reps.append(texto_mostrar)
+                        mapeo_reps[texto_mostrar] = id_rep
+                        
+                seleccion_rep = st.selectbox("Representante Legal (Opcional):", opciones_reps)
+                if seleccion_rep != "Seleccione un representante...":
+                    id_rep_seleccionado = mapeo_reps[seleccion_rep]
+            else:
+                st.warning("No se encontraron representantes legales.")
 
         # --- BOTÓN DE CIERRE ---
         # --- BOTÓN DE CIERRE (ESTRUCTURA FINAL REFORZADA) ---
@@ -319,7 +357,10 @@ with tab2:
                         "GERENTE DE VENTAS": gerente_ventas,
                         "USO_CFDI": uso_cfdi,
                         "MET_PAGO": met_pago,
-                        "ANTICIPO": anticipo
+                        "ANTICIPO": anticipo,
+                        "Fecha de RPP": fecha_rpp,
+                        "Fecha del Poder": fecha_poder,
+                        "Telefono Emp": tel_emp
                     })
 
                     # --- AQUÍ EMPIEZA EL BLOQUE CORREGIDO ---
@@ -356,6 +397,10 @@ with tab2:
                         if exito:
                             actualizar_ultimo_registro_hoja(
                                 "pedido_stellantis_pm", id_gen)
+                                
+                            if id_rep_seleccionado:
+                                actualizar_representante_en_pm_stellantis(id_rep_seleccionado)
+                                
                             st.success(
                                 f"🏢 Registro de Empresa Guardado con ID: {id_gen}")
                             st.balloons()
@@ -405,9 +450,13 @@ with tab2:
         with cp1:
             st.link_button("📄 Imprimir Pedido Nissan", obtener_url_impresion(
                 "Pedido"), use_container_width=True)
+            st.link_button("🚗 Imprimir Pedido EMPRESA Nissan (PM)", obtener_url_impresion(
+                "pedido_pm_nissan"), use_container_width=True, type="primary")
         with cp2:
             st.link_button("📄 Imprimir Pedido Stellantis", obtener_url_impresion(
                 "pedido_stellantis"), use_container_width=True)
+            st.link_button("🚗 Imprimir Pedido EMPRESA Stellantis (PM)", obtener_url_impresion(
+                "pedido_stellantis_pm"), use_container_width=True, type="primary")
 
         # BOTONES NUEVOS DEL PLD
         st.write("---")
@@ -422,6 +471,15 @@ with tab2:
         with c_pld3:
             st.link_button("📄 PLD 3", obtener_url_pld(
                 "PLD_3"), use_container_width=True)
+                
+        st.caption("PLD Stellantis")
+        c_pld_s1, c_pld_s2 = st.columns(2)
+        with c_pld_s1:
+            st.link_button("📄 PLD_1_stellantis", obtener_url_pld(
+                "PF_STELLANTIS_1"), use_container_width=True)
+        with c_pld_s2:
+            st.link_button("📄 PLD_2_stellantis", obtener_url_pld(
+                "PF_STELLANTIS_2"), use_container_width=True)
 
         # --- SECCIÓN EXCLUSIVA PARA PERSONAS MORALES ---
         st.write("---")
@@ -431,22 +489,15 @@ with tab2:
         exp_pm = st.expander(
             "📄 Formatos para la Empresa (Persona Moral)", expanded=True)
         with exp_pm:
-            col_pm1, col_pm2 = st.columns(2)
-            with col_pm1:
-                # Botón para el Pedido específico de Persona Moral
-                st.link_button("🚗 Imprimir Pedido EMPRESA (PM)",
-                               obtener_url_impresion("pedido_stellantis_pm"),
-                               use_container_width=True, type="primary")
-            with col_pm2:
-                st.caption("Documentación PLD Empresa")
-                c_pld_m1, c_pld_m2, c_pld_m3 = st.columns(3)
-                # Aquí usamos los GIDs que corresponden a los PLD de Persona Moral
-                c_pld_m1.link_button("📋 PM 1", obtener_url_pld(
-                    "PLD_PM1"), use_container_width=True)
-                c_pld_m2.link_button("📋 PM 2", obtener_url_pld(
-                    "PLD_PM2"), use_container_width=True)
-                c_pld_m3.link_button("📋 PM 3", obtener_url_pld(
-                    "PLD_PM3"), use_container_width=True)
+            st.caption("Documentación PLD Empresa")
+            c_pld_m1, c_pld_m2, c_pld_m3 = st.columns(3)
+            # Aquí usamos los GIDs que corresponden a los PLD de Persona Moral
+            c_pld_m1.link_button("📋 PM 1", obtener_url_pld(
+                "PLD_PM1"), use_container_width=True)
+            c_pld_m2.link_button("📋 PM 2", obtener_url_pld(
+                "PLD_PM2"), use_container_width=True)
+            c_pld_m3.link_button("📋 PM 3", obtener_url_pld(
+                "PLD_PM3"), use_container_width=True)
 
         exp_rl = st.expander(
             "⚖️ Formatos para el Representante Legal", expanded=True)

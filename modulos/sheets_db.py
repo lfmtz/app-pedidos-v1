@@ -203,7 +203,8 @@ def obtener_url_impresion(pestana):
     gids = {
         "Pedido": "211566386",
         "pedido_stellantis": "1351176481",
-        "pedido_stellantis_pm": "92238292"
+        "pedido_stellantis_pm": "92238292",
+        "pedido_pm_nissan": "1414537373"
     }
 
     gid = gids.get(pestana, "211566386")
@@ -340,3 +341,29 @@ def generar_id_especifico(nombre_hoja, prefijo):
     except Exception as e:
         print(f"Error al generar ID para {nombre_hoja}: {e}")
         return f"{prefijo}-ERR"
+
+@st.cache_data(ttl=300)
+def obtener_representantes_legales():
+    """Obtiene una lista de representantes legales desde la hoja REPRESENTANTE_LEGAL."""
+    try:
+        client = get_client()
+        sheet = client.open("FORMATO DE PEDIDO_26").worksheet("REPRESENTANTE_LEGAL")
+        registros = sheet.get_all_records()
+        return registros
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error al obtener representantes: {e}")
+        return []
+
+def actualizar_representante_en_pm_stellantis(id_representante):
+    """Actualiza la celda O3 de la hoja PM_STELLANTIS_1."""
+    try:
+        client = get_client()
+        doc = client.open("FORMATO DE PEDIDO_26")
+        hoja = doc.worksheet("PM_STELLANTIS_1")
+        hoja.update_acell('O3', id_representante)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"❌ Error al actualizar representante en PM_STELLANTIS_1: {e}")
+        return False
