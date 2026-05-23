@@ -204,6 +204,11 @@ with tab2:
         if ocupacion_val.endswith(" (Detectado)"):
             ocupacion_val = ocupacion_val.replace(" (Detectado)", "")
 
+        # --- Fecha de Nacimiento ---
+        col_fnac1, col_fnac2 = st.columns([1, 3])
+        with col_fnac1:
+            fecha_nac = st.text_input("📅 Fecha de Nacimiento:", value=datos.get("Fecha_nac", ""), placeholder="DD/MM/AAAA")
+
         # --- Campos Opcionales para Persona Moral ---
         col_pm1, col_pm2, col_pm3 = st.columns(3)
         with col_pm1:
@@ -391,7 +396,8 @@ with tab2:
                         "ANTICIPO": anticipo,
                         "Fecha de RPP": fecha_rpp,
                         "Fecha del Poder": fecha_poder,
-                        "Telefono Emp": tel_emp
+                        "Telefono Emp": tel_emp,
+                        "Fecha_nac": fecha_nac
                     })
 
                     # --- AQUÍ EMPIEZA EL BLOQUE CORREGIDO ---

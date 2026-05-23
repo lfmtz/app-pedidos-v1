@@ -76,10 +76,11 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         "GESTORIA": 39, "PLACAS / TENENCIA": 40, "VERIFICACION": 41,
         "ACCESORIOS": 42, "TOMA DE AUTO": 43, "PRECIO DE TOMA": 44,
         "GERENTE DE AUTOS SEMINUEVOS": 45, "GERENTE DE VENTAS": 46,
-        "USO_CFDI": 47, "MET_PAGO": 48, "ANTICIPO": 49
+        "USO_CFDI": 47, "MET_PAGO": 48, "ANTICIPO": 49,
+        "Fecha_nac": 50  # Columna AX
     }
 
-    fila_a_inyectar = [""] * 49
+    fila_a_inyectar = [""] * 50
     datos["ID_Seguimiento"] = id_seguimiento  # Corregido NameError
 
     for campo, valor in datos.items():
@@ -95,7 +96,7 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     # --- 3. GUARDADO EN HOJA DE DATOS ---
     try:
         if id_actualizar and fila_destino <= len(todas_las_filas):
-            rango_update = f"A{fila_destino}:AW{fila_destino}"
+            rango_update = f"A{fila_destino}:AX{fila_destino}"
             sheet_pedido.update(rango_update, [fila_a_inyectar])
         else:
             sheet_pedido.append_row(fila_a_inyectar)
