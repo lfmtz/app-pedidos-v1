@@ -12,7 +12,8 @@ from modulos.sheets_db import (
     actualizar_campo_pld_representante,
     generar_id_especifico,
     obtener_representantes_legales,
-    actualizar_representante_en_pm_stellantis
+    actualizar_representante_en_pm_stellantis,
+    obtener_catalogo_ocupaciones
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -155,7 +156,7 @@ with tab2:
 
         # --- SECCIÓN 1: IDENTIFICACIÓN Y OCUPACIÓN ---
         st.subheader("📋 Documentación y Ocupación")
-        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+        col_c1, col_c2, col_c3 = st.columns(3)
         with col_c1:
             ident_idx = OPCIONES_IDENTIFICACION.index(datos.get("Identificaciones")) if datos.get(
                 "Identificaciones") in OPCIONES_IDENTIFICACION else 0
@@ -169,9 +170,39 @@ with tab2:
         with col_c3:
             folio_val = st.text_input(
                 "Folio ID:", value=datos.get("FOLIO", ""))
-        with col_c4:
-            ocupacion_val = st.text_input(
-                "Ocupación:", value=datos.get("OCUPACION", ""))
+
+        st.markdown("""
+            <style>
+            /* Reducir el tamaño de fuente en selectboxes de Streamlit */
+            .stSelectbox div[data-baseweb="select"] {
+                font-size: 13px !important;
+            }
+            .stSelectbox ul[role="listbox"] li {
+                font-size: 13px !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # Ocupación en renglón completo
+        destino_actual = st.session_state.get("radio_destino_constancia", "datos_pedidos")
+        hoja_cat = "ACT_PM" if destino_actual == "PERSONA_MORAL" else "ACT_PF"
+        
+        with st.spinner("Cargando..."):
+            opciones_oc = obtener_catalogo_ocupaciones(hoja_cat)
+            
+        valor_oc_actual = str(datos.get("OCUPACION", "")).strip()
+        if valor_oc_actual in opciones_oc:
+            idx_oc = opciones_oc.index(valor_oc_actual)
+        else:
+            if valor_oc_actual and valor_oc_actual != "None":
+                opciones_oc.append(f"{valor_oc_actual} (Detectado)")
+                idx_oc = len(opciones_oc) - 1
+            else:
+                idx_oc = 0
+                
+        ocupacion_val = st.selectbox("Ocupación:", opciones_oc, index=idx_oc)
+        if ocupacion_val.endswith(" (Detectado)"):
+            ocupacion_val = ocupacion_val.replace(" (Detectado)", "")
 
         # --- Campos Opcionales para Persona Moral ---
         col_pm1, col_pm2, col_pm3 = st.columns(3)
@@ -458,40 +489,25 @@ with tab2:
             st.link_button("🚗 Imprimir Pedido EMPRESA Stellantis (PM)", obtener_url_impresion(
                 "pedido_stellantis_pm"), use_container_width=True, type="primary")
 
-        # BOTONES NUEVOS DEL PLD
+        # --- PAPELERIA NISSAN ---
         st.write("---")
-        st.caption("Formatos PLD (Individuales)")
-        c_pld1, c_pld2, c_pld3 = st.columns(3)
-        with c_pld1:
-            st.link_button("📄 PLD 1", obtener_url_pld(
-                "PLD_1"), use_container_width=True)
-        with c_pld2:
-            st.link_button("📄 PLD 2", obtener_url_pld(
-                "PLD_2"), use_container_width=True)
-        with c_pld3:
-            st.link_button("📄 PLD 3", obtener_url_pld(
-                "PLD_3"), use_container_width=True)
-                
-        st.caption("PLD Stellantis")
-        c_pld_s1, c_pld_s2 = st.columns(2)
-        with c_pld_s1:
-            st.link_button("📄 PLD_1_stellantis", obtener_url_pld(
-                "PF_STELLANTIS_1"), use_container_width=True)
-        with c_pld_s2:
-            st.link_button("📄 PLD_2_stellantis", obtener_url_pld(
-                "PF_STELLANTIS_2"), use_container_width=True)
+        with st.expander("📁 PAPELERIA NISSAN", expanded=True):
+            st.subheader("📄 Formatos PLD (Individuales)")
+            c_pld1, c_pld2, c_pld3 = st.columns(3)
+            with c_pld1:
+                st.link_button("📄 PLD 1", obtener_url_pld(
+                    "PLD_1"), use_container_width=True)
+            with c_pld2:
+                st.link_button("📄 PLD 2", obtener_url_pld(
+                    "PLD_2"), use_container_width=True)
+            with c_pld3:
+                st.link_button("📄 PLD 3", obtener_url_pld(
+                    "PLD_3"), use_container_width=True)
 
-        # --- SECCIÓN EXCLUSIVA PARA PERSONAS MORALES ---
-        st.write("---")
-        st.subheader("🏢 Área de Impresión: Empresas y Representantes")
+            st.divider()
 
-        # Usamos contenedores expandibles para no saturar la vista
-        exp_pm = st.expander(
-            "📄 Formatos para la Empresa (Persona Moral)", expanded=True)
-        with exp_pm:
-            st.caption("Documentación PLD Empresa")
+            st.subheader("🏢 Formatos para la Empresa (Persona Moral)")
             c_pld_m1, c_pld_m2, c_pld_m3 = st.columns(3)
-            # Aquí usamos los GIDs que corresponden a los PLD de Persona Moral
             c_pld_m1.link_button("📋 PM 1", obtener_url_pld(
                 "PLD_PM1"), use_container_width=True)
             c_pld_m2.link_button("📋 PM 2", obtener_url_pld(
@@ -499,19 +515,17 @@ with tab2:
             c_pld_m3.link_button("📋 PM 3", obtener_url_pld(
                 "PLD_PM3"), use_container_width=True)
 
-        exp_rl = st.expander(
-            "⚖️ Formatos para el Representante Legal", expanded=True)
-        with exp_rl:
-            st.caption("Prevención de Lavado de Dinero - Representante")
+            st.divider()
+
+            st.subheader("⚖️ Formatos para el Representante Legal")
             c_rl1, c_rl2, c_rl3 = st.columns(3)
-            # Botones para los PLD específicos del Representante (Celda H1)
             c_rl1.link_button("👤 PLD RL 1", obtener_url_pld(
                 "PLD_1_RL"), use_container_width=True)
             c_rl2.link_button("👤 PLD RL 2", obtener_url_pld(
                 "PLD_2_RL"), use_container_width=True)
             c_rl3.link_button("👤 PLD RL 3", obtener_url_pld(
                 "PLD_3_RL"), use_container_width=True)
-        # ... (Código anterior de tu formulario o validación)
+
 
         st.write("---")  # Tu línea divisoria actual
 

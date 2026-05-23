@@ -367,3 +367,29 @@ def actualizar_representante_en_pm_stellantis(id_representante):
         import streamlit as st
         st.error(f"❌ Error al actualizar representante en PM_STELLANTIS_1: {e}")
         return False
+
+@st.cache_data(ttl=3600)
+def obtener_catalogo_ocupaciones(hoja_catalogo):
+    """Obtiene la lista de ocupaciones de ACT_PM o ACT_PF."""
+    try:
+        client = get_client()
+        # Intentamos abrir en el formato de pedido
+        try:
+            sheet = client.open("FORMATO DE PEDIDO_26").worksheet(hoja_catalogo)
+        except:
+            # Fallback en caso de que esté en el otro archivo
+            sheet = client.open("SOL_CREDITO_ACTUAL_2026").worksheet(hoja_catalogo)
+            
+        registros = sheet.get_all_records()
+        col_name = "ACT_ECON_PM" if hoja_catalogo == "ACT_PM" else "ACT_ECON_PF"
+        
+        lista = ["SELECCIONE UNA OPCIÓN"]
+        for row in registros:
+            val = str(row.get(col_name, "")).strip()
+            if val and val not in lista:
+                lista.append(val)
+        return lista
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error al cargar catálogo {hoja_catalogo}: {e}")
+        return ["SELECCIONE UNA OPCIÓN"]
