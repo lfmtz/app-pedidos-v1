@@ -261,7 +261,6 @@ def obtener_url_pld(parte):
         f"format=pdf&gid={gid}"
         "&size=letter"
         "&portrait=true"
-        "&fitw=true"
         "&gridlines=false"
         "&printtitle=false"
         "&sheetnames=false"
@@ -272,6 +271,14 @@ def obtener_url_pld(parte):
         "&left_margin=0.20"     # Margen izquierdo
         "&right_margin=0.20"    # Margen derecho
     )
+
+    if parte == "PF_STELLANTIS_1":
+        # Escalar a una sola hoja y establecer rango A1:P94
+        url += "&scale=4&range=A1%3AP94"
+    else:
+        # Por defecto, ajustar al ancho
+        url += "&fitw=true"
+
     return url
 
 
