@@ -191,6 +191,29 @@ def obtener_datos_pedido_por_id(id_seguimiento):
         return None
 
 
+@st.cache_data(ttl=120)
+def obtener_listado_clientes():
+    """Devuelve un listado resumido de clientes (ID, Nombre, Apellido) de datos_pedidos."""
+    try:
+        client = get_client()
+        sheet = client.open("FORMATO DE PEDIDO_26").worksheet("datos_pedidos")
+        registros = sheet.get_all_records()
+        listado = []
+        for row in registros:
+            id_seg = str(row.get("ID_Seguimiento", "")).strip()
+            if id_seg:
+                listado.append({
+                    "ID_Seguimiento": id_seg,
+                    "Nombre (s):": str(row.get("Nombre (s):", "")).strip(),
+                    "Primer Apellido:": str(row.get("Primer Apellido:", "")).strip(),
+                    "RFC:": str(row.get("RFC:", "")).strip(),
+                })
+        return listado
+    except Exception as e:
+        st.error(f"Error al cargar listado de clientes: {e}")
+        return []
+
+
 def obtener_url_impresion(pestana):
     """
     Configuración de impresión ajustada con los GIDs reales 

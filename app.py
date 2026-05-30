@@ -88,10 +88,28 @@ with tab1:
 with tab2:
     st.header("Validación de Constancia y Formato de Pedido")
 
+    # ─── BANDERA DE CONTROL (Backend) ───────────────────────────────────────
+    # Cambia a False para ocultar el listado de clientes sin tocar el resto
+    MOSTRAR_LISTADO_CLIENTES = True
+
+    # Campos SAT para captura manual (cuando no hay constancia)
+    CAMPOS_SAT = [
+        "Nombre (s):", "Primer Apellido:", "Segundo Apellido:",
+        "RFC:", "CURP:",
+        "Tipo de Vialidad:", "Nombre de Vialidad:",
+        "Número Exterior:", "Número Interior:",
+        "Nombre de la Colonia:", "Nombre de la Localidad:",
+        "Nombre del Municipio o Demarcación Territorial:",
+        "Nombre de la Entidad Federativa:", "Código Postal:",
+        "Correo Electrónico", "Número Celular"
+    ]
+    # ─────────────────────────────────────────────────────────────────────────
+
     # 2. El Radio Button
     opcion_pedido = st.radio("Seleccione una acción para el Pedido:", [
                              "Opción A: Nuevo Cliente (Subir Constancia)",
-                             "Opción B: Cliente Existente (Inyectar ID en T2)"])
+                             "Opción B: Cliente Existente (Inyectar ID en T2)",
+                             "Opción C: Captura Manual (Sin Constancia)"])
 
     # 3. LÓGICA DE AUTO-LIMPIEZA (Solo al cambiar de B a A)
     if "opcion_anterior" not in st.session_state:
@@ -125,10 +143,33 @@ with tab2:
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         st.subheader("🔍 Gestión de Pedidos Existentes")
+
+        # Listado de clientes (controlado por la bandera MOSTRAR_LISTADO_CLIENTES)
+        if MOSTRAR_LISTADO_CLIENTES:
+            from modulos.sheets_db import obtener_listado_clientes
+            with st.spinner("Cargando listado de clientes..."):
+                listado = obtener_listado_clientes()
+            if listado:
+                opciones_lista = ["— Seleccionar del listado —"] + [
+                    f"{c['ID_Seguimiento']} | {c.get('Nombre (s):','')} {c.get('Primer Apellido:','')}"
+                    for c in listado
+                ]
+                sel_lista = st.selectbox("📋 Seleccionar cliente del listado:", opciones_lista, key="sel_cliente_lista")
+                if sel_lista != "— Seleccionar del listado —":
+                    id_de_lista = sel_lista.split(" | ")[0].strip()
+                    if st.button("📂 Cargar cliente seleccionado", use_container_width=True):
+                        with st.spinner("Cargando..."):
+                            datos_rec = obtener_datos_pedido_por_id(id_de_lista)
+                            if datos_rec:
+                                st.session_state.datos_extraidos = datos_rec
+                                inyectar_t2_existente(id_de_lista)
+                                st.rerun()
+            st.markdown("---")
+
         col_b1, col_b2 = st.columns([3, 1])
         with col_b1:
             id_existente = st.text_input(
-                "Ingrese el ID_Seguimiento (Ej. PED-005):")
+                "O ingrese el ID_Seguimiento manualmente (Ej. PED-005):")
         with col_b2:
             if st.button("📂 Cargar Datos", use_container_width=True):
                 if id_existente:
@@ -142,10 +183,17 @@ with tab2:
                         else:
                             st.error("❌ ID no encontrado.")
 
+    elif opcion_pedido == "Opción C: Captura Manual (Sin Constancia)":
+        st.info("✏️ Modo captura manual activo. Completa los datos del cliente directamente en el formulario de abajo.")
+        if not datos:
+            # Inicializamos campos vacíos para que el formulario aparezca
+            st.session_state.datos_extraidos = {k: "" for k in CAMPOS_SAT}
+            st.rerun()
+
     # --- FORMULARIO DINÁMICO ---
     # Si hay datos (de la opción A o B), mostramos el formulario
     # if datos:
-    if datos or opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
+    if datos or opcion_pedido in ["Opción A: Nuevo Cliente (Subir Constancia)", "Opción C: Captura Manual (Sin Constancia)"]:
         st.divider()
         # Buscar contacto si es nuevo cliente y tenemos RFC
         rfc_detectado = datos.get("RFC:", "")
@@ -302,17 +350,30 @@ with tab2:
             )
 
         # --- SECCIÓN 5: REVISIÓN SAT ---
-        with st.expander("🏠 Revisar Datos SAT (Dirección y Vialidad)"):
+        with st.expander("🏠 Revisar / Capturar Datos SAT (Dirección y Vialidad)", expanded=(opcion_pedido == "Opción C: Captura Manual (Sin Constancia)")):
             datos_validados = {}
-            # Filtrar llaves que no son de formulario interno
-            llaves_sat = [k for k in datos.keys() if k not in fin_opciones + ["ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO", "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades", "Monto a Financiar",
-                                                                              "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS", "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp"]]
+            EXCLUIR_SAT = fin_opciones + [
+                "ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO",
+                "Precio Auto", "Color", "Pago Inicial", "Plazo", "Mensualidades",
+                "Monto a Financiar", "GARANTIA EXTENDIDA", "SEGURO", "KIT DE SEGURIDAD",
+                "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
+                "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS",
+                "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO",
+                "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp"
+            ]
+
+            if opcion_pedido == "Opción C: Captura Manual (Sin Constancia)":
+                # Captura libre: mostramos los campos SAT definidos en CAMPOS_SAT
+                llaves_sat = CAMPOS_SAT
+            else:
+                # Modo OCR / edición: solo campos que vienen del OCR
+                llaves_sat = [k for k in datos.keys() if k not in EXCLUIR_SAT]
 
             cols_sat = st.columns(2)
             for i, k in enumerate(llaves_sat):
                 with cols_sat[i % 2]:
                     datos_validados[k] = st.text_input(
-                        f"Validar {k}", value=datos.get(k, ""))
+                        f"{k}", value=datos.get(k, ""))
 
         # --- AQUÍ VA EL NUEVO FRAGMENTO: SELECCIÓN DE DESTINO ---
         st.divider()
