@@ -214,6 +214,21 @@ def obtener_listado_clientes():
         return []
 
 
+def eliminar_registro_por_id(id_seguimiento, nombre_hoja="datos_pedidos"):
+    """Elimina la fila cuyo ID_Seguimiento coincida en la hoja indicada."""
+    try:
+        client = get_client()
+        sheet = client.open("FORMATO DE PEDIDO_26").worksheet(nombre_hoja)
+        celda = sheet.find(id_seguimiento.strip().upper())
+        if celda:
+            sheet.delete_rows(celda.row)
+            return True
+        return False
+    except Exception as e:
+        st.error(f"❌ Error al eliminar registro: {e}")
+        return False
+
+
 def obtener_url_impresion(pestana):
     """
     Configuración de impresión ajustada con los GIDs reales 

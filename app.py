@@ -13,7 +13,8 @@ from modulos.sheets_db import (
     generar_id_especifico,
     obtener_representantes_legales,
     actualizar_representante_en_pm_stellantis,
-    obtener_catalogo_ocupaciones
+    obtener_catalogo_ocupaciones,
+    eliminar_registro_por_id
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
@@ -166,6 +167,25 @@ with tab2:
                                 st.rerun()
             st.markdown("---")
 
+        st.markdown("---")
+
+        # --- SECCIÓN BORRAR DUPLICADO ---
+        with st.expander("🗑️ Eliminar registro duplicado", expanded=False):
+            st.warning("⚠️ Esta acción es permanente. Úsala solo para borrar registros duplicados.")
+            col_del1, col_del2 = st.columns([3, 1])
+            with col_del1:
+                id_a_borrar = st.text_input("ID a eliminar (Ej. PED-012):", key="id_borrar")
+            with col_del2:
+                if st.button("🗑️ Eliminar", use_container_width=True, type="primary"):
+                    if id_a_borrar:
+                        if eliminar_registro_por_id(id_a_borrar.upper()):
+                            st.success(f"✅ Registro {id_a_borrar.upper()} eliminado correctamente.")
+                            st.cache_data.clear()
+                        else:
+                            st.error(f"❌ No se encontró el registro {id_a_borrar.upper()}.")
+                    else:
+                        st.warning("Ingresa un ID para eliminar.")
+
         col_b1, col_b2 = st.columns([3, 1])
         with col_b1:
             id_existente = st.text_input(
@@ -290,11 +310,11 @@ with tab2:
         with col_a4:
             fin_opciones = ["FINANCIERA PROPIA", "CONTADO",
                             "BANCARIO", "KUNA", "SICREA", "OTRO"]
-            # Pre-seleccionar canales
+            # Pre-seleccionar canales; si no hay ninguno, dejar vacío (NINGUNO)
             seleccionados = [
                 opt for opt in fin_opciones if datos.get(opt) == "SÍ"]
             tipo_fin = st.multiselect(
-                "Canal de Venta:", fin_opciones, default=seleccionados)
+                "Canal de Venta (dejar vacío = NINGUNO):", fin_opciones, default=seleccionados)
 
         # --- Detalles de CFDI y depositos ---
         with st.expander("Datos de Facturación y Pago", expanded=True):
@@ -417,7 +437,19 @@ with tab2:
         # --- BOTÓN DE CIERRE ---
         # --- BOTÓN DE CIERRE (ESTRUCTURA FINAL REFORZADA) ---
         # --- BOTÓN DE CIERRE (VERSIÓN FINAL OPTIMIZADA Y SIN DUPLICADOS) ---
-        if st.button(f"Confirmar e Inyectar en {destino_hoja}"):
+        # --- BOTÓN ACTUALIZAR (modo forzado para registros existentes) ---
+        id_activo = st.session_state.get("datos_extraidos", {}).get("ID_Seguimiento", "")
+        if id_activo and destino_hoja == "datos_pedidos":
+            st.info(f"📂 Registro activo: **{id_activo}** — Usa 'Actualizar' para guardar cambios sin crear duplicado.")
+            col_btn1, col_btn2 = st.columns(2)
+            btn_confirmar = col_btn1.button(f"✅ Confirmar e Inyectar en {destino_hoja}", use_container_width=True)
+            btn_actualizar = col_btn2.button(f"🔄 Actualizar registro {id_activo}", use_container_width=True, type="primary")
+        else:
+            col_btn1, _ = st.columns([1, 1])
+            btn_confirmar = col_btn1.button(f"✅ Confirmar e Inyectar en {destino_hoja}", use_container_width=True)
+            btn_actualizar = False
+
+        if btn_confirmar or btn_actualizar:
             # AQUÍ VA EL PRIMER BLOQUE (La Validación)
             if destino_hoja == "datos_pedidos" and ident_sel == "SELECCIONE UNA OPCIÓN":
                 st.error(
@@ -435,6 +467,7 @@ with tab2:
                         "OCUPACION": ocupacion_val, "Auto": auto_val, "AÑO": año_val,
                         "Precio Auto": precio_val, "Color": color_val, "Pago Inicial": pago_ini_val,
                         "Plazo": plazo_val, "Mensualidades": mensualidad_val, "Monto a Financiar": monto_fin_val,
+                        # Canal de Venta: solo escribe SÍ si fue seleccionado; si no, vacío
                         "FINANCIER PROPIA": "SÍ" if "FINANCIERA PROPIA" in tipo_fin else "",
                         "CONTADO": "SÍ" if "CONTADO" in tipo_fin else "",
                         "BANCARIO": "SÍ" if "BANCARIO" in tipo_fin else "",
@@ -460,6 +493,9 @@ with tab2:
                         "Telefono Emp": tel_emp,
                         "Fecha_nac": fecha_nac
                     })
+                    # Si es modo Actualizar, forzamos el ID para que siempre edite
+                    if btn_actualizar and id_activo:
+                        id_a_editar = id_activo
 
                     # --- AQUÍ EMPIEZA EL BLOQUE CORREGIDO ---
 
@@ -558,7 +594,7 @@ with tab2:
 
         # --- PAPELERIA NISSAN ---
         st.write("---")
-        with st.expander("📁 PAPELERIA NISSAN", expanded=True):
+        with st.expander("📁 PAPELERIA NISSAN", expanded=False):
             st.subheader("📄 Formatos PLD (Individuales)")
             c_pld1, c_pld2, c_pld3 = st.columns(3)
             with c_pld1:
