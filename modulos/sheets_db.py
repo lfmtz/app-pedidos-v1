@@ -312,8 +312,24 @@ def obtener_url_pld(parte):
     )
 
     if parte == "PF_STELLANTIS_1":
-        # Escalar a una sola hoja y establecer rango A1:P94
-        url += "&scale=4&range=A1%3AP94"
+        # Sin escala forzada para conservar el tamaño de fuente original.
+        # Márgenes mínimos + rango específico A1:P94 para que entre en una sola hoja.
+        url = (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
+            f"format=pdf&gid={gid}"
+            "&size=letter"
+            "&portrait=true"
+            "&fitw=true"          # Ajusta solo al ancho, sin encoger fuente
+            "&gridlines=false"
+            "&printtitle=false"
+            "&sheetnames=false"
+            "&fzr=false"
+            "&top_margin=0.10"
+            "&bottom_margin=0.10"
+            "&left_margin=0.10"
+            "&right_margin=0.10"
+            "&range=A1%3AP94"     # Imprime solo hasta la fila 94
+        )
     else:
         # Por defecto, ajustar al ancho
         url += "&fitw=true"
