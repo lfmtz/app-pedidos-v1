@@ -32,6 +32,32 @@ def buscar_cliente_por_rfc(rfc):
     return None
 
 
+@st.cache_data(ttl=300)
+def obtener_listado_sol_credito():
+    """Devuelve lista de clientes (nombre + RFC) de SOL_CREDITO_ACTUAL_2026 para búsqueda."""
+    try:
+        client = get_client()
+        sheet = client.open("SOL_CREDITO_ACTUAL_2026").sheet1
+        registros = sheet.get_all_records()
+        listado = []
+        for row in registros:
+            rfc   = str(row.get("RFC", "")).strip().upper()
+            nombre = str(row.get("Nombre(s) acreditado", "")).strip()
+            ap1   = str(row.get("Primer apellido acreditado", "")).strip()
+            ap2   = str(row.get("Segundo apellido acreditado", "")).strip()
+            if rfc:
+                nombre_completo = f"{nombre} {ap1} {ap2}".strip()
+                listado.append({
+                    "rfc": rfc,
+                    "nombre": nombre_completo,
+                    "etiqueta": f"{nombre_completo} — {rfc}"
+                })
+        return sorted(listado, key=lambda x: x["nombre"])
+    except Exception as e:
+        st.error(f"❌ Error al cargar listado de clientes: {e}")
+        return []
+
+
 def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     client = get_client()
     doc_pedido = client.open("FORMATO DE PEDIDO_26")
