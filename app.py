@@ -61,8 +61,8 @@ with tab1:
         opciones_etiquetas = ["— Escribe nombre o RFC para buscar —"] + [
             c["etiqueta"] for c in listado_sol
         ]
-        # mapeo etiqueta → RFC
-        mapa_rfc = {c["etiqueta"]: c["rfc"] for c in listado_sol}
+        # mapeo etiqueta → datos del cliente
+        mapa_clientes = {c["etiqueta"]: c for c in listado_sol}
 
         seleccion = st.selectbox(
             "🔍 Buscar cliente por nombre:",
@@ -70,8 +70,15 @@ with tab1:
             key="busqueda_cliente_sol"
         )
         if seleccion != "— Escribe nombre o RFC para buscar —":
-            rfc_input = mapa_rfc.get(seleccion, "")
-            st.caption(f"RFC seleccionado: **{rfc_input}**")
+            cliente_sel = mapa_clientes.get(seleccion, {})
+            rfc_input = cliente_sel.get("rfc", "")
+            nombre_sel = cliente_sel.get("nombre", "")
+            # ── Tarjeta de confirmación ──────────────────────────────────
+            st.info(
+                f"**✅ Cliente seleccionado para la solicitud:**\n\n"
+                f"👤 **Nombre:** {nombre_sel}\n\n"
+                f"🪪 **RFC:** {rfc_input}"
+            )
     else:
         # Fallback: campo manual si no hay lista
         rfc_input = st.text_input("Ingrese el RFC del cliente para buscar en la base:")
