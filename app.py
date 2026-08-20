@@ -300,7 +300,7 @@ with tab2:
         # --- Fecha de Nacimiento ---
         col_fnac1, col_fnac2, _ = st.columns([2, 2, 2])
         with col_fnac1:
-            fecha_nac = st.text_input("📅 Fecha de Nacimiento:", value=datos.get("Fecha_nac", ""), placeholder="DD/MM/AAAA")
+            fecha_nac = st.text_input("📅 Fecha de Nacimiento:", value=datos.get("Fecha_nac", datos.get("Fecha de Nacimiento", "")), placeholder="DD/MM/AAAA")
         with col_fnac2:
             import datetime
             val_pld1 = datos.get("Fecha PLD 1", "")
@@ -410,7 +410,8 @@ with tab2:
                 "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
                 "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS",
                 "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO",
-                "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp"
+                "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp",
+                "Fecha_nac", "Fecha PLD 1"
             ]
 
             if opcion_pedido == "Opción C: Captura Manual (Sin Constancia)":
