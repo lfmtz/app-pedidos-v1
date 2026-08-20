@@ -122,10 +122,24 @@ def generar_solicitud_pdf(datos_cliente):
                 if ann.get('/Subtype') == '/Widget':
                     # Limpiamos el nombre del campo del PDF
                     key = ann.get('/T')
+                    if not key:
+                        parent = ann.get('/Parent')
+                        if parent:
+                            key = parent.get('/T')
                     if key:
                         key = key.replace('(', '').replace(')', '')
+                        # Remover sufijos comunes de duplicado o índice para normalizar
+                        import re
+                        base_key = re.sub(r'(_\d+|\#\d+|\[\d+\])$', '', key)
+                        
+                        target_key = None
                         if key in data_dict:
-                            val = data_dict[key]
+                            target_key = key
+                        elif base_key in data_dict:
+                            target_key = base_key
+                            
+                        if target_key:
+                            val = data_dict[target_key]
                             val_str = str(val) if val is not None else ""
                             # Inyectar valor en MAYÚSCULAS
                             ann.update(pdfrw.PdfDict(
@@ -300,17 +314,28 @@ def generar_pdf_stellantis(datos_cliente):
                 # IMPORTANTE: Filtrar por /Widget como en Nissan
                 if ann.get('/Subtype') == '/Widget':
                     key = ann.get('/T')
+                    if not key:
+                        parent = ann.get('/Parent')
+                        if parent:
+                            key = parent.get('/T')
                     if key:
                         # Limpiar nombre técnico del campo
                         key = key.replace('(', '').replace(')', '')
+                        # Remover sufijos comunes de duplicado o índice para normalizar
+                        import re
+                        base_key = re.sub(r'(_\d+|\#\d+|\[\d+\])$', '', key)
 
                         # Si el PDF usa nombres largos tipo 'f1_05[0].final_nombre[0]'
                         # buscamos si nuestra clave está contenida al final del nombre
                         for campo_pdf in mapeo_stella:
-                            if key == campo_pdf or key.endswith('.' + campo_pdf) or key.endswith(campo_pdf):
+                            if (base_key == campo_pdf or 
+                                base_key.endswith('.' + campo_pdf) or 
+                                base_key.endswith(campo_pdf) or 
+                                key == campo_pdf or 
+                                key.endswith('.' + campo_pdf) or 
+                                key.endswith(campo_pdf)):
                                 val = mapeo_stella[campo_pdf]
-                                val_str = str(val).upper(
-                                ) if val is not None else ""
+                                val_str = str(val).upper() if val is not None else ""
 
                                 # Inyectar con PdfString.encode para evitar paréntesis impresos
                                 ann.update(pdfrw.PdfDict(

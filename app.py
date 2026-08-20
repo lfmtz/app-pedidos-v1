@@ -298,9 +298,15 @@ with tab2:
             ocupacion_val = ocupacion_val.replace(" (Detectado)", "")
 
         # --- Fecha de Nacimiento ---
-        col_fnac1, col_fnac2 = st.columns([1, 3])
+        col_fnac1, col_fnac2, _ = st.columns([2, 2, 2])
         with col_fnac1:
             fecha_nac = st.text_input("📅 Fecha de Nacimiento:", value=datos.get("Fecha_nac", ""), placeholder="DD/MM/AAAA")
+        with col_fnac2:
+            import datetime
+            val_pld1 = datos.get("Fecha PLD 1", "")
+            if not val_pld1:
+                val_pld1 = datetime.date.today().strftime("%d/%m/%Y")
+            fecha_pld1 = st.text_input("📅 Fecha PLD 1:", value=val_pld1, placeholder="DD/MM/AAAA")
 
         # --- Campos Opcionales para Persona Moral ---
         col_pm1, col_pm2, col_pm3 = st.columns(3)
@@ -516,7 +522,8 @@ with tab2:
                         "Fecha de RPP": fecha_rpp,
                         "Fecha del Poder": fecha_poder,
                         "Telefono Emp": tel_emp,
-                        "Fecha_nac": fecha_nac
+                        "Fecha_nac": fecha_nac,
+                        "Fecha PLD 1": fecha_pld1
                     })
                     # Si es modo Actualizar, forzamos el ID para que siempre edite
                     if btn_actualizar and id_activo:
