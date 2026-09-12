@@ -43,14 +43,15 @@ def obtener_listado_sol_credito():
         for row in registros:
             rfc   = str(row.get("RFC", "")).strip().upper()
             nombre = str(row.get("Nombre(s) acreditado", "")).strip()
-            ap1   = str(row.get("Primer apellido acreditado", "")).strip()
-            ap2   = str(row.get("Segundo apellido acreditado", "")).strip()
+            ap1   = str(row.get("Apellido Paterno acreditado", row.get("Primer apellido acreditado", ""))).strip()
+            ap2   = str(row.get("Apellido Materno acreditado", row.get("Segundo apellido acreditado", ""))).strip()
             if rfc:
                 nombre_completo = f"{nombre} {ap1} {ap2}".strip()
                 listado.append({
                     "rfc": rfc,
                     "nombre": nombre_completo,
-                    "etiqueta": f"{nombre_completo} — {rfc}"
+                    "etiqueta": f"{nombre_completo} — {rfc}",
+                    "datos": row
                 })
         return sorted(listado, key=lambda x: x["nombre"])
     except Exception as e:

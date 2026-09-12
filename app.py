@@ -81,34 +81,44 @@ with tab1:
             )
     else:
         # Fallback: campo manual si no hay lista
+        cliente_sel = {}
         rfc_input = st.text_input("Ingrese el RFC del cliente para buscar en la base:")
     # ────────────────────────────────────────────────────────────────────────────
 
-    if st.button("Buscar y Generar Solicitud"):
+    if st.button("Buscar y Generar Solicitud", use_container_width=True):
         if rfc_input:
             with st.spinner(f"Buscando cliente y preparando solicitud de {marca_sol}..."):
-                cliente = buscar_cliente_por_rfc(rfc_input)
+                cliente = cliente_sel.get("datos") if 'cliente_sel' in locals() and cliente_sel.get("datos") else buscar_cliente_por_rfc(rfc_input)
 
                 if cliente:
-                    st.success(
-                        f"Cliente encontrado: {cliente.get('Nombre(s) acreditado', '')}")
-
                     if marca_sol == "Nissan":
                         pdf_file = generar_solicitud_pdf(cliente)
                         nombre_final = f"Solicitud_Nissan_{rfc_input.upper()}.pdf"
                     else:
                         pdf_file, nombre_final = generar_pdf_stellantis(cliente)
 
-                    st.download_button(
-                        label=f"📥 Descargar Solicitud {marca_sol}",
-                        data=pdf_file,
-                        file_name=nombre_final,
-                        mime="application/pdf"
-                    )
+                    # Guardar en session_state para persistencia en móviles
+                    st.session_state.solicitud_pdf_bytes = pdf_file.getvalue() if hasattr(pdf_file, "getvalue") else pdf_file
+                    st.session_state.solicitud_nombre_final = nombre_final
+                    st.session_state.solicitud_cliente_nombre = cliente.get('Nombre(s) acreditado', '')
+                    st.session_state.solicitud_marca = marca_sol
                 else:
+                    st.session_state.solicitud_pdf_bytes = None
                     st.error("Cliente no encontrado en SOL_CREDITO_ACTUAL_2026.")
         else:
             st.warning("👆 Selecciona un cliente de la lista para continuar.")
+
+    # Renderizado estable del botón de descarga fuera del st.button
+    if st.session_state.get("solicitud_pdf_bytes"):
+        st.success(
+            f"✅ Solicitud de {st.session_state.get('solicitud_marca', marca_sol)} lista para: {st.session_state.get('solicitud_cliente_nombre', '')}")
+        st.download_button(
+            label=f"📥 Descargar Solicitud {st.session_state.get('solicitud_marca', marca_sol)}",
+            data=st.session_state.solicitud_pdf_bytes,
+            file_name=st.session_state.solicitud_nombre_final,
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:

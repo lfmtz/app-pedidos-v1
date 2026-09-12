@@ -159,92 +159,77 @@ def generar_solicitud_pdf(datos_cliente):
 
 
 def generar_pdf_aviso_privacidad(datos_cliente):
-    # 1. RUTA RELATIVA (Funciona en tu PC y en Streamlit Cloud)
-    ruta_plantilla = os.path.join("plantillas", "aviso_privacidad_stella.pdf")
+    import fitz
+    from io import BytesIO
 
+    ruta_plantilla = os.path.join("plantillas", "aviso_privacidad_stella.pdf")
     if not os.path.exists(ruta_plantilla):
         raise FileNotFoundError(
             f"No se encontró el PDF en: {os.path.abspath(ruta_plantilla)}")
 
-    # 2. NOMBRE CONCATENADO EN MAYÚSCULAS
-    nombre_completo = concatenar_nombre_cliente(datos_cliente).upper()
+    nombre_completo = concatenar_nombre_cliente(datos_cliente).upper().strip()
 
-    # 3. LECTURA DE PLANTILLA
-    try:
-        template = pdfrw.PdfReader(ruta_plantilla)
-    except Exception as e:
-        raise Exception(f"Error crítico al leer el PDF: {e}")
+    doc = fitz.open(ruta_plantilla)
+    for page in doc:
+        for w in page.widgets():
+            campo = (w.field_name or "").replace('(', '').replace(')', '')
+            if campo == 'Nombre Cliente aviso priva':
+                w.field_value = nombre_completo
+                w.update()
 
-    # --- LÓGICA DE VISIBILIDAD FORZADA ---
-    # Forzamos que el lector de PDF dibuje los campos al abrir
-    if not template.Root.AcroForm:
-        template.Root.AcroForm = pdfrw.PdfDict()
-
-    template.Root.AcroForm.update(pdfrw.PdfDict(
-        NeedAppearances=pdfrw.PdfObject('true')))
-
-    # 4. LLENADO DEL CAMPO
-    for page in template.pages:
-        annotations = page.get('/Annots')
-        if annotations:
-            for annotation in annotations:
-                nombre_campo_pdf = annotation.get('/T')
-                if nombre_campo_pdf:
-                    # Limpiamos paréntesis del nombre técnico del campo para compararlo
-                    nombre_campo_pdf = nombre_campo_pdf.replace(
-                        '(', '').replace(')', '')
-
-                # BUSCAMOS TU CAMPO ESPECÍFICO
-                if nombre_campo_pdf == 'Nombre Cliente aviso priva':
-                    # Inyectamos el nombre.
-                    # f'({valor})' es el formato interno de PDF, no imprime los paréntesis.
-                    from pdfrw.objects.pdfstring import PdfString
-                    # annotation.update(pdfrw.PdfDict(V=f'({nombre_completo})'))
-                    val_enc = PdfString.encode(nombre_completo)
-                    annotation.update(pdfrw.PdfDict(V=val_enc))
-
-                    # ELIMINAMOS LA APARIENCIA PREVIA (/AP)
-                    # Esto es lo que quita el "efecto fantasma"
-                    if '/AP' in annotation:
-                        del annotation['/AP']
-
-    # 5. GENERAR EN MEMORIA (BytesIO)
-    output_buffer = BytesIO()
-    pdfrw.PdfWriter().write(output_buffer, template)
+    output_buffer = BytesIO(doc.tobytes(garbage=3, deflate=True))
     output_buffer.seek(0)
+    doc.close()
 
-    # 6. NOMBRE DEL ARCHIVO PARA DESCARGA
-    nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_')}.pdf"
-
+    nombre_descarga = f"Aviso_Privacidad_{nombre_completo.replace(' ', '_') or 'CLIENTE'}.pdf"
     return output_buffer, nombre_descarga
 
 
 def generar_pdf_stellantis(datos_cliente):
+    import fitz
+    import re
+    import datetime
+    from io import BytesIO
+
     c = datos_cliente
-    from pdfrw.objects.pdfstring import PdfString
 
     # 1. Preparación de variables concatenadas
     nom = str(c.get('Nombre(s) acreditado', '')).strip()
-    pat = str(c.get('Apellido Paterno acreditado', '')).strip()
-    mat = str(c.get('Apellido Materno acreditado', '')).strip()
+    pat = str(c.get('Apellido Paterno acreditado', c.get('Primer apellido acreditado', ''))).strip()
+    mat = str(c.get('Apellido Materno acreditado', c.get('Segundo apellido acreditado', ''))).strip()
     nombre_completo_final = f"{nom} {pat} {mat}".strip().upper()
 
     calle = str(c.get('Calle (solo nombre)', '')).strip()
     num_ext = str(c.get('Numero exterior', '')).strip()
     num_int = str(c.get('Numero interior', '')).strip()
-    direccion_completa = f"{calle} EXT: {num_ext} INT: {num_int}".strip(
-    ).upper()
+    direccion_completa = f"{calle} EXT: {num_ext} INT: {num_int}".strip().upper()
 
     # 2. Lógica de fechas
-    fecha_nac = str(c.get('Fecha de Nacimiento', ''))
+    fecha_nac = str(c.get('Fecha de Nacimiento', '')).strip()
     dia, mes, anio = "", "", ""
     if "/" in fecha_nac:
         partes = fecha_nac.split("/")
         if len(partes) == 3:
             dia, mes, anio = partes[0], partes[1], partes[2]
+    elif "-" in fecha_nac:
+        partes = fecha_nac.split("-")
+        if len(partes) == 3:
+            if len(partes[0]) == 4:  # YYYY-MM-DD
+                anio, mes, dia = partes[0], partes[1], partes[2]
+            else:  # DD-MM-YYYY
+                dia, mes, anio = partes[0], partes[1], partes[2]
 
-    # 3. Diccionario de Mapeo (Asegúrate de que los nombres coincidan con los del PDF)
+    fecha_nac_c = str(c.get('Fecha de nacimiento conyuge', '')).strip()
+    if "-" in fecha_nac_c and "/" not in fecha_nac_c:
+        partes_c = fecha_nac_c.split("-")
+        if len(partes_c) == 3 and len(partes_c[0]) == 4:
+            fecha_nac_c = f"{partes_c[2]}/{partes_c[1]}/{partes_c[0]}"
+
+    fecha_hoy = datetime.date.today().strftime("%d/%m/%Y")
+
+    # 3. Diccionario de Mapeo Completo (Acreditado, Cónyuge, Referencias, Firmas)
     mapeo_stella = {
+        # Datos del acreditado
         'nom_acre': nom.upper(),
         'ape_pat': pat.upper(),
         'ape_mat': mat.upper(),
@@ -265,6 +250,7 @@ def generar_pdf_stellantis(datos_cliente):
         'ciudad_poblacion': str(c.get('Ciudad o Población', '')).upper(),
         'tel_casa': str(c.get('Teléfono de casa fijo o celular', '')),
         'años_residencia': str(c.get('Años de vivir en su domicilio', '')),
+        'meses_residencia': '0',
         'ocupa_profesion': str(c.get('¿Qué puesto o actividad desempeñas en tu trabajo?', '')).upper(),
         'nom-empresa': str(c.get('Nombre de la Empresa ó Institución', '')).upper(),
         'giro_empresa': str(c.get('¿A que se dedica la empresa donde laboras?', '')).upper(),
@@ -275,8 +261,29 @@ def generar_pdf_stellantis(datos_cliente):
         'estado_empre': str(c.get('Estado trabajo', '')).upper(),
         'codigo_post_empre': str(c.get('Código Postal trabajo', '')).upper(),
         'tel_oficina': str(c.get('Teléfono de oficina y extensión ó directo', '')),
+        'tel_oficina_0': str(c.get('Teléfono de oficina y extensión ó directo', '')),
+        'tel_oficina_1': str(c.get('Teléfono de oficina y extensión ó directo', '')),
         'nom_jefe_inmediato': str(c.get('Nombre de tu Jefe Inmediato', '')).upper(),
         'años_empre': str(c.get('Antigüedad en el empleo, negocio ó jubilado ó pensionado años', '')),
+        'sueldo_neto': str(c.get('Ingresos netos mensuales', c.get('Ingreso Fijo', ''))),
+
+        # Datos del cónyuge
+        'nom_conyuge': str(c.get('Nombre(s) conyuge', '')).upper(),
+        'paterno_conyuge': str(c.get('Apellido Paterno conyuge', '')).upper(),
+        'materno_conyuge': str(c.get('Apellido Materno conyuge', '')).upper(),
+        'nac_conyuge': fecha_nac_c.upper(),
+        'lug_nac_conyuge': str(c.get('Entidad Federativa de nacimiento conyuge', '')).upper(),
+        'nacional_conyuge': str(c.get('NACIONALIDAD', '')).upper(),
+        'curp_conyuge': str(c.get('CURP_CONYUGE', '')).upper(),
+        'rfc_conyuge': str(c.get('RFC_CONYUGE', '')).upper(),
+        'ocup_conyuge': str(c.get('OCUPACION_CONYUGE', '')).upper(),
+        'nom_emp_conyuge': str(c.get('NOM_EMPRESA_CONYUGE', '')).upper(),
+        'tel_emp_conyuge': str(c.get('TEL_EMPRESA_CONYUGE', '')),
+        'calle_emp_conyuge': str(c.get('CALL_EMPRESA_CONYUGE', '')).upper(),
+        'num_ext_int_emp_conyuge': str(c.get('NUM_EXTINT_EM_CONY', '')).upper(),
+        'col_emp_conyuge': str(c.get('COL_EM_CONY', '')).upper(),
+        'alcal_emp_conyuge': str(c.get('ALC_MUN_EMP_CONY', '')).upper(),
+
         # Referencias
         'ref1_nombre': str(c.get('Nombre (solo nombre) referencia 1', '')).upper(),
         'ref1_parentesco': str(c.get('Parentesco ref 1', '')).upper(),
@@ -290,6 +297,7 @@ def generar_pdf_stellantis(datos_cliente):
         'ref3_parentesco': str(c.get('Parentesco ref 3', '')).upper(),
         'ref3_telefono': str(c.get('Teléfono de la Referencia 3', '')),
         'ref3_ocupacion': str(c.get('Ocupacion de la referencia 3', '')).upper(),
+
         # Campos Finales
         'nom_final_sol': nombre_completo_final,
         'final_nombre1': nombre_completo_final,
@@ -301,59 +309,53 @@ def generar_pdf_stellantis(datos_cliente):
         'final_colonia': str(c.get('Colonia acreditado', '')).upper(),
         'final_codigo_postal': str(c.get('Código Postal', '')),
         'nom_vendedor': "LUIS FERNANDO MARTINEZ TREJO",
+
+        # Páginas 2, 3, 4
+        '134': nombre_completo_final,
+        '3': fecha_hoy,
     }
 
-    # 4. Proceso de llenado robusto
+    # 4. Proceso de llenado robusto con PyMuPDF
     ruta_plantilla = os.path.join("plantillas", "sol_stella.pdf")
-    template = pdfrw.PdfReader(ruta_plantilla)
+    if not os.path.exists(ruta_plantilla):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ruta_plantilla = os.path.join(base_dir, "plantillas", "sol_stella.pdf")
 
-    for page in template.pages:
-        annotations = page.get('/Annots')
-        if annotations:
-            for ann in annotations:
-                # IMPORTANTE: Filtrar por /Widget como en Nissan
-                if ann.get('/Subtype') == '/Widget':
-                    key = ann.get('/T')
-                    if not key:
-                        parent = ann.get('/Parent')
-                        if parent:
-                            key = parent.get('/T')
-                    if key:
-                        # Limpiar nombre técnico del campo
-                        key = key.replace('(', '').replace(')', '')
-                        # Remover sufijos comunes de duplicado o índice para normalizar
-                        import re
-                        base_key = re.sub(r'(_\d+|\#\d+|\[\d+\])$', '', key)
+    if not os.path.exists(ruta_plantilla):
+        raise FileNotFoundError(
+            f"No se encontró la plantilla en: {os.path.abspath(ruta_plantilla)}")
 
-                        # Si el PDF usa nombres largos tipo 'f1_05[0].final_nombre[0]'
-                        # buscamos si nuestra clave está contenida al final del nombre
-                        for campo_pdf in mapeo_stella:
-                            if (base_key == campo_pdf or 
-                                base_key.endswith('.' + campo_pdf) or 
-                                base_key.endswith(campo_pdf) or 
-                                key == campo_pdf or 
-                                key.endswith('.' + campo_pdf) or 
-                                key.endswith(campo_pdf)):
-                                val = mapeo_stella[campo_pdf]
-                                val_str = str(val).upper() if val is not None else ""
+    doc = fitz.open(ruta_plantilla)
 
-                                # Inyectar con PdfString.encode para evitar paréntesis impresos
-                                ann.update(pdfrw.PdfDict(
-                                    V=PdfString.encode(val_str)))
+    for page in doc:
+        for w in page.widgets():
+            key = w.field_name or ""
+            key_clean = key.replace('(', '').replace(')', '')
+            base_key = re.sub(r'(_\d+|\#\d+|\[\d+\])$', '', key_clean)
 
-                                if '/AP' in ann:
-                                    del ann['/AP']
-                                break
+            target_val = None
+            if key_clean in mapeo_stella:
+                target_val = mapeo_stella[key_clean]
+            elif base_key in mapeo_stella:
+                target_val = mapeo_stella[base_key]
+            else:
+                for campo_pdf, val in mapeo_stella.items():
+                    if (base_key.endswith('.' + campo_pdf) or 
+                        key_clean.endswith('.' + campo_pdf)):
+                        target_val = val
+                        break
 
-    # 5. Visibilidad y Generación
-    if not template.Root.AcroForm:
-        template.Root.AcroForm = pdfrw.PdfDict()
-    template.Root.AcroForm.update(pdfrw.PdfDict(
-        NeedAppearances=pdfrw.PdfObject('true')))
+            if target_val is not None:
+                val_str = str(target_val).strip()
+                if val_str:
+                    w.field_value = val_str
+                    # update() genera el stream de apariencia gráfica /AP garantizando
+                    # visibilidad en Foxit Reader, Acrobat Reader, Chrome, Edge y móviles.
+                    w.update()
 
-    pdf_bytes = BytesIO()
-    pdfrw.PdfWriter().write(pdf_bytes, template)
+    pdf_bytes = BytesIO(doc.tobytes(garbage=3, deflate=True))
     pdf_bytes.seek(0)
+    doc.close()
 
     nombre_archivo = f"Solicitud_Stellantis_{str(c.get('RFC', 'S_N')).upper()}.pdf"
     return pdf_bytes, nombre_archivo

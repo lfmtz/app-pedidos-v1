@@ -10,3 +10,5 @@ __pycache__/
 
 # 3. Pero le decimos que NO ignore los PDFs que estén dentro de plantillas
 !plantillas/*.pdf
+
+test_outputs/
