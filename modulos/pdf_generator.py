@@ -219,11 +219,14 @@ def generar_pdf_stellantis(datos_cliente):
             else:  # DD-MM-YYYY
                 dia, mes, anio = partes[0], partes[1], partes[2]
 
-    fecha_nac_c = str(c.get('Fecha de nacimiento conyuge', '')).strip()
+    fecha_nac_c = str(c.get('Fecha_de_nacimiento_conyuge') or c.get('Fecha de nacimiento conyuge') or '').strip()
     if "-" in fecha_nac_c and "/" not in fecha_nac_c:
         partes_c = fecha_nac_c.split("-")
-        if len(partes_c) == 3 and len(partes_c[0]) == 4:
-            fecha_nac_c = f"{partes_c[2]}/{partes_c[1]}/{partes_c[0]}"
+        if len(partes_c) == 3:
+            if len(partes_c[0]) == 4:  # YYYY-MM-DD
+                fecha_nac_c = f"{partes_c[2]}/{partes_c[1]}/{partes_c[0]}"
+            else:  # DD-MM-YYYY
+                fecha_nac_c = f"{partes_c[0]}/{partes_c[1]}/{partes_c[2]}"
 
     fecha_hoy = datetime.date.today().strftime("%d/%m/%Y")
 
@@ -268,21 +271,27 @@ def generar_pdf_stellantis(datos_cliente):
         'sueldo_neto': str(c.get('Ingresos netos mensuales', c.get('Ingreso Fijo', ''))),
 
         # Datos del cónyuge
-        'nom_conyuge': str(c.get('Nombre(s) conyuge', '')).upper(),
-        'paterno_conyuge': str(c.get('Apellido Paterno conyuge', '')).upper(),
-        'materno_conyuge': str(c.get('Apellido Materno conyuge', '')).upper(),
+        'nom_conyuge': str(c.get('Nombre(s)_conyuge') or c.get('Nombre(s) conyuge') or '').upper(),
+        'paterno_conyuge': str(c.get('Apellido_Paterno_conyuge') or c.get('Apellido Paterno conyuge') or '').upper(),
+        'materno_conyuge': str(c.get('Apellido_Materno_conyuge') or c.get('Apellido Materno conyuge') or '').upper(),
         'nac_conyuge': fecha_nac_c.upper(),
-        'lug_nac_conyuge': str(c.get('Entidad Federativa de nacimiento conyuge', '')).upper(),
-        'nacional_conyuge': str(c.get('NACIONALIDAD', '')).upper(),
-        'curp_conyuge': str(c.get('CURP_CONYUGE', '')).upper(),
-        'rfc_conyuge': str(c.get('RFC_CONYUGE', '')).upper(),
-        'ocup_conyuge': str(c.get('OCUPACION_CONYUGE', '')).upper(),
-        'nom_emp_conyuge': str(c.get('NOM_EMPRESA_CONYUGE', '')).upper(),
-        'tel_emp_conyuge': str(c.get('TEL_EMPRESA_CONYUGE', '')),
-        'calle_emp_conyuge': str(c.get('CALL_EMPRESA_CONYUGE', '')).upper(),
-        'num_ext_int_emp_conyuge': str(c.get('NUM_EXTINT_EM_CONY', '')).upper(),
-        'col_emp_conyuge': str(c.get('COL_EM_CONY', '')).upper(),
-        'alcal_emp_conyuge': str(c.get('ALC_MUN_EMP_CONY', '')).upper(),
+        'nacional_conyuge': str(c.get('NACIONALIDAD_CONYU') or c.get('NACIONALIDAD') or '').upper(),
+        'rfc_conyuge': str(c.get('RFC_CONYUGE') or '').upper(),
+        'lug_nac_conyuge': str(c.get('Entidad_Federativa_de_nacimiento_conyuge') or c.get('Entidad Federativa de nacimiento conyuge') or '').upper(),
+        'curp_conyuge': str(c.get('CURP_CONYUGE') or '').upper(),
+        'ocup_conyuge': str(c.get('OCUPACION_CONYUGE') or '').upper(),
+        'nom_emp_conyuge': str(c.get('NOM_EMPRESA_CONYUGE') or '').upper(),
+        'giro_emp_conyuge': str(c.get('GIRO_EMP_CONYUGE') or c.get('Giro empresa conyuge') or '').upper(),
+        'tel_emp_conyuge': str(c.get('TEL_EMPRESA_CONYUGE') or ''),
+        'calle_emp_conyuge': str(c.get('CALL_EMPRESA_CONYUGE') or '').upper(),
+        'num_ext_int_emp_conyuge': str(c.get('NUM_EXTINT_EM_CONY') or '').upper(),
+        'col_emp_conyuge': str(c.get('COL_EM_CONY') or '').upper(),
+        'alcal_emp_conyuge': str(c.get('ALC_MUN_EMP_CONY') or '').upper(),
+        'cp_emp_conyuge': str(c.get('CP_EMP_CONYUGE') or ''),
+        'ciudad_pob_emp_conyuge': str(c.get('CIUDAD_POB_EMP_CONYUGE') or '').upper(),
+        'estado_emp_conyuge': str(c.get('ESTADO_EMP_CONYUGE') or '').upper(),
+        'ingresos_conyuge': str(c.get('INGRESOS_CONYUGE') or ''),
+        'antiguedad_emp_conyuge': str(c.get('ANTIGUEDAD_EMP_CONYUGE') or ''),
 
         # Referencias
         'ref1_nombre': str(c.get('Nombre (solo nombre) referencia 1', '')).upper(),
