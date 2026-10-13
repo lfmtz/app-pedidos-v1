@@ -26,8 +26,10 @@ from modulos.auth_guard import verificar_acceso
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
 
-# --- CAPA DE SEGURIDAD (BLOQUEO TOTAL ANTES DE CARGAR DATOS) ---
-verificar_acceso()
+# --- CAPA DE SEGURIDAD (En pausa: cambiar a True cuando quieras activarla) ---
+ACTIVAR_SEGURIDAD = False
+if ACTIVAR_SEGURIDAD:
+    verificar_acceso()
 
 st.title("🏦 Sistema de Gestión de Créditos y Pedidos")
 
