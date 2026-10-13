@@ -105,10 +105,11 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         "GERENTE DE AUTOS SEMINUEVOS": 45, "GERENTE DE VENTAS": 46,
         "USO_CFDI": 47, "MET_PAGO": 48, "ANTICIPO": 49,
         "Fecha_nac": 50,  # Columna AX
-        "Fecha PLD 1": 51  # Columna AY
+        "Fecha PLD 1": 51,  # Columna AY
+        "TIPO_PERSONALIDAD": 52  # Columna AZ
     }
 
-    fila_a_inyectar = [""] * 51
+    fila_a_inyectar = [""] * 52
     datos["ID_Seguimiento"] = id_seguimiento  # Corregido NameError
 
     for campo, valor in datos.items():
@@ -124,16 +125,21 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     # --- 3. GUARDADO EN HOJA DE DATOS ---
     try:
         if id_actualizar and fila_destino <= len(todas_las_filas):
-            rango_update = f"A{fila_destino}:AY{fila_destino}"
+            rango_update = f"A{fila_destino}:AZ{fila_destino}"
             sheet_pedido.update(rango_update, [fila_a_inyectar])
         else:
             sheet_pedido.append_row(fila_a_inyectar)
 
         # --- 4. ACTUALIZACIÓN CELDA T2 ---
-        try:
-            sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
-        except:
-            sheet_formato.update('T2', [[id_seguimiento]])
+        for nombre_hoja in ("Pedido", "pedido_actual_stellantis", "pedido_stellantis"):
+            try:
+                hoja_fmt = doc_pedido.worksheet(nombre_hoja)
+                try:
+                    hoja_fmt.update(values=[[id_seguimiento]], range_name='T2')
+                except:
+                    hoja_fmt.update('T2', [[id_seguimiento]])
+            except:
+                pass
 
         return id_seguimiento  # <--- CRÍTICO: Debe estar fuera de los mini-try internos
 
@@ -142,23 +148,19 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         st.error(f"❌ Error al guardar datos: {e}")
         return None  # Si falla, devuelve None para que app.py sepa que hubo error
 
-    # --- 4. ACTUALIZACIÓN CELDA T2 (Para impresión) ---
-    try:
-        sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
-    except:
-        sheet_formato.update('T2', [[id_seguimiento]])
-
-    return id_seguimiento
-
 
 def inyectar_t2_existente(id_seguimiento):
     client = get_client()
     doc_pedido = client.open("FORMATO DE PEDIDO_26")
-    sheet_formato = doc_pedido.worksheet("Pedido")
-    try:
-        sheet_formato.update(values=[[id_seguimiento]], range_name='T2')
-    except:
-        sheet_formato.update('T2', [[id_seguimiento]])
+    for nombre_hoja in ("Pedido", "pedido_actual_stellantis", "pedido_stellantis"):
+        try:
+            hoja = doc_pedido.worksheet(nombre_hoja)
+            try:
+                hoja.update(values=[[id_seguimiento]], range_name='T2')
+            except:
+                hoja.update('T2', [[id_seguimiento]])
+        except:
+            pass
 
 
 def buscar_contacto_externo(rfc_busqueda):
@@ -202,7 +204,7 @@ def obtener_datos_pedido_por_id(id_seguimiento):
             "CONTADO", "BANCARIO", "KUNA", "OTRO", "SICREA", "GARANTIA EXTENDIDA", "SEGURO",
             "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
             "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS",
-            "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha_nac", "Fecha PLD 1"
+            "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD"
         ]
 
         # Creamos el diccionario emparejando encabezado con valor
@@ -264,19 +266,39 @@ def obtener_url_impresion(pestana):
     """
     spreadsheet_id = "1XxB_Sd7yM_B8Wg4PpbraDtR1VBYmcZmKZjHhWM_2qxA"
 
-    # GIDs ACTUALIZADOS SEGÚN TUS LINKS:
-    # Stellantis: 1351176481
+    # GIDs ACTUALIZADOS:
+    # Pedido Stellantis (pedido_actual_stellantis): 852990280
     # Pedido Nissan: 211566386
     gids = {
         "Pedido": "211566386",
-        "pedido_stellantis": "1351176481",
+        "pedido_stellantis": "852990280",
+        "pedido_actual_stellantis": "852990280",
         "pedido_stellantis_pm": "92238292",
         "pedido_pm_nissan": "1414537373"
     }
 
     gid = gids.get(pestana, "211566386")
 
-    # URL de exportación limpia para PDF
+    if pestana in ("pedido_stellantis", "pedido_actual_stellantis"):
+        # Configuración optimizada a 1 sola hoja Carta (scale=4) y rango A1:K74 (oculta T2)
+        return (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
+            f"format=pdf&gid={gid}"
+            "&size=letter"
+            "&portrait=true"
+            "&scale=4"
+            "&gridlines=false"
+            "&printtitle=false"
+            "&sheetnames=false"
+            "&fzr=false"
+            "&top_margin=0.20"
+            "&bottom_margin=0.20"
+            "&left_margin=0.25"
+            "&right_margin=0.25"
+            "&range=A1%3AK74"
+        )
+
+    # URL de exportación limpia para PDF (demás formatos)
     url = (
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
         f"format=pdf&gid={gid}"

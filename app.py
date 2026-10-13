@@ -21,9 +21,14 @@ from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 from modulos.pdf_generator import generar_pdf_aviso_privacidad
 from modulos.pdf_generator import generar_pdf_stellantis
+from modulos.auth_guard import verificar_acceso
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
+
+# --- CAPA DE SEGURIDAD (BLOQUEO TOTAL ANTES DE CARGAR DATOS) ---
+verificar_acceso()
+
 st.title("🏦 Sistema de Gestión de Créditos y Pedidos")
 
 # --- LISTAS DE OPCIONES ---
@@ -359,7 +364,7 @@ with tab2:
 
         # --- Detalles de CFDI y depositos ---
         with st.expander("Datos de Facturación y Pago", expanded=True):
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 uso_cfdi = st.text_input(
                     "Uso de CFDI:", value=datos.get("USO_CFDI", ""))
@@ -369,6 +374,18 @@ with tab2:
             with col3:
                 anticipo = st.text_input(
                     "Anticipo:", value=datos.get("ANTICIPO", ""))
+            with col4:
+                opciones_pers = ["PERSONA FÍSICA", "PERSONA MORAL"]
+                pers_guardada = str(datos.get("TIPO_PERSONALIDAD", "")).strip().upper()
+                rfc_limpio = str(datos.get("RFC:", "")).strip()
+                if pers_guardada in opciones_pers:
+                    idx_pers = opciones_pers.index(pers_guardada)
+                elif len(rfc_limpio) == 12:
+                    idx_pers = 1
+                else:
+                    idx_pers = 0
+                tipo_personalidad_val = st.selectbox(
+                    "Tipo de Personalidad:", opciones_pers, index=idx_pers)
 
         # --- SECCIÓN 3: ADICIONALES Y TOMA ---
         st.subheader("🛠️ Adicionales y Toma de Unidad")
@@ -421,7 +438,7 @@ with tab2:
                 "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS",
                 "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO",
                 "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp",
-                "Fecha_nac", "Fecha PLD 1"
+                "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD"
             ]
 
             if opcion_pedido == "Opción C: Captura Manual (Sin Constancia)":
@@ -534,7 +551,8 @@ with tab2:
                         "Fecha del Poder": fecha_poder,
                         "Telefono Emp": tel_emp,
                         "Fecha_nac": fecha_nac,
-                        "Fecha PLD 1": fecha_pld1
+                        "Fecha PLD 1": fecha_pld1,
+                        "TIPO_PERSONALIDAD": tipo_personalidad_val
                     })
                     # Si es modo Actualizar, forzamos el ID para que siempre edite
                     if btn_actualizar and id_activo:
@@ -549,6 +567,8 @@ with tab2:
                             datos_finales, id_actualizar=id_a_editar)
                         if id_gen:
                             actualizar_ultimo_registro_hoja("Pedido", id_gen)
+                            actualizar_ultimo_registro_hoja(
+                                "pedido_actual_stellantis", id_gen)
                             actualizar_ultimo_registro_hoja(
                                 "pedido_stellantis", id_gen)
                             st.success(f"✅ Registro Físico Exitoso: {id_gen}")
