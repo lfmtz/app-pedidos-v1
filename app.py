@@ -314,16 +314,55 @@ with tab2:
         if ocupacion_val.endswith(" (Detectado)"):
             ocupacion_val = ocupacion_val.replace(" (Detectado)", "")
 
-        # --- Fecha de Nacimiento ---
+        # --- Fecha de Nacimiento y Fecha PLD 1 (Calendario + Captura rápida DD/MM/YYYY) ---
+        import datetime
+        from modulos.ocr_processor import extraer_fecha_nac_de_rfc_o_curp
+
+        def _parsear_fecha(fecha_str, default_val=None):
+            if not fecha_str:
+                return default_val
+            s = str(fecha_str).strip()
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y"):
+                try:
+                    return datetime.datetime.strptime(s, fmt).date()
+                except ValueError:
+                    pass
+            return default_val
+
+        val_fnac_str = str(datos.get("Fecha_nac", datos.get("Fecha de Nacimiento", ""))).strip()
+        if not val_fnac_str:
+            val_fnac_str = extraer_fecha_nac_de_rfc_o_curp(datos.get("RFC:", ""), datos.get("CURP:", ""))
+            if val_fnac_str:
+                datos["Fecha_nac"] = val_fnac_str
+
+        val_pld1_str = str(datos.get("Fecha PLD 1", "")).strip()
+        fecha_nac_default = _parsear_fecha(val_fnac_str, None)
+        fecha_pld1_default = _parsear_fecha(val_pld1_str, datetime.date.today())
+
+        # Clave dinámica vinculada al cliente cargado para que siempre refresque al cambiar de cliente
+        cliente_key_id = f"{datos.get('ID_Seguimiento', '')}_{datos.get('RFC:', '')}_{val_fnac_str}"
+
         col_fnac1, col_fnac2, _ = st.columns([2, 2, 2])
         with col_fnac1:
-            fecha_nac = st.text_input("📅 Fecha de Nacimiento:", value=datos.get("Fecha_nac", datos.get("Fecha de Nacimiento", "")), placeholder="DD/MM/AAAA")
+            fecha_nac_dt = st.date_input(
+                "📅 Fecha de Nacimiento:",
+                value=fecha_nac_default,
+                min_value=datetime.date(1920, 1, 1),
+                max_value=datetime.date.today(),
+                format="DD/MM/YYYY",
+                key=f"fnac_dt_{cliente_key_id}"
+            )
+            fecha_nac = fecha_nac_dt.strftime("%d/%m/%Y") if fecha_nac_dt else ""
         with col_fnac2:
-            import datetime
-            val_pld1 = datos.get("Fecha PLD 1", "")
-            if not val_pld1:
-                val_pld1 = datetime.date.today().strftime("%d/%m/%Y")
-            fecha_pld1 = st.text_input("📅 Fecha PLD 1:", value=val_pld1, placeholder="DD/MM/AAAA")
+            fecha_pld1_dt = st.date_input(
+                "📅 Fecha PLD 1:",
+                value=fecha_pld1_default,
+                min_value=datetime.date(2000, 1, 1),
+                max_value=datetime.date(2035, 12, 31),
+                format="DD/MM/YYYY",
+                key=f"fpld1_dt_{cliente_key_id}"
+            )
+            fecha_pld1 = fecha_pld1_dt.strftime("%d/%m/%Y") if fecha_pld1_dt else ""
 
         # --- Campos Opcionales para Persona Moral ---
         col_pm1, col_pm2, col_pm3 = st.columns(3)

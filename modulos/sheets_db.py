@@ -215,6 +215,14 @@ def obtener_datos_pedido_por_id(id_seguimiento):
             else:
                 datos_pedido[encabezado] = ""
 
+        # Si Fecha_nac está vacía en la hoja, deducirla automáticamente del CURP o RFC
+        if not str(datos_pedido.get("Fecha_nac", "")).strip():
+            from modulos.ocr_processor import extraer_fecha_nac_de_rfc_o_curp
+            datos_pedido["Fecha_nac"] = extraer_fecha_nac_de_rfc_o_curp(
+                datos_pedido.get("RFC:", ""),
+                datos_pedido.get("CURP:", "")
+            )
+
         return datos_pedido
     except Exception as e:
         st.error(f"Error al recuperar el pedido: {e}")
@@ -280,21 +288,21 @@ def obtener_url_impresion(pestana):
     gid = gids.get(pestana, "211566386")
 
     if pestana in ("pedido_stellantis", "pedido_actual_stellantis"):
-        # Configuración optimizada a 1 sola hoja Carta (scale=4) y rango A1:K74 (oculta T2)
+        # Configuración optimizada a ancho completo de hoja Carta (fitw=true) en 1 sola página
         return (
             f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?"
             f"format=pdf&gid={gid}"
             "&size=letter"
             "&portrait=true"
-            "&scale=4"
+            "&fitw=true"
             "&gridlines=false"
             "&printtitle=false"
             "&sheetnames=false"
             "&fzr=false"
-            "&top_margin=0.20"
-            "&bottom_margin=0.20"
-            "&left_margin=0.25"
-            "&right_margin=0.25"
+            "&top_margin=0.15"
+            "&bottom_margin=0.15"
+            "&left_margin=0.20"
+            "&right_margin=0.20"
             "&range=A1%3AK74"
         )
 

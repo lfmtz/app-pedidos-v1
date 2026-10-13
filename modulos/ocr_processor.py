@@ -115,13 +115,18 @@ def procesar_texto_a_diccionario(file_stream):
         return extraer_valor_lineas(etiqueta, permitir_vacio=permitir_vacio)
 
     # ── RETORNO FINAL ────────────────────────────────────────────────────────
+    rfc_ext = extraer("RFC:")
+    curp_ext = extraer("CURP:")
+    fecha_nac_auto = extraer_fecha_nac_de_rfc_o_curp(rfc_ext, curp_ext)
+
     return {
         # 1. Identidad Persona Física
-        "RFC:":            extraer("RFC:"),
-        "CURP:":           extraer("CURP:"),
+        "RFC:":            rfc_ext,
+        "CURP:":           curp_ext,
         "Nombre (s):":     extraer("Nombre (s):"),
         "Primer Apellido:":  extraer("Primer Apellido:"),
         "Segundo Apellido:": extraer("Segundo Apellido:"),
+        "Fecha_nac":       fecha_nac_auto,
 
         # 2. Identidad Persona Moral
         "Denominación/Razón Social:": extraer("Denominación/Razón Social:"),
@@ -143,6 +148,21 @@ def procesar_texto_a_diccionario(file_stream):
         "Nombre del Municipio o Demarcación Territorial:": extraer("Demarcación Territorial:"),
         "Entre Calle:":         extraer("Entre Calle:"),
     }
+
+
+def extraer_fecha_nac_de_rfc_o_curp(rfc: str = "", curp: str = "") -> str:
+    """
+    Extrae la fecha de nacimiento en formato DD/MM/YYYY a partir de los 6 dígitos
+    (AAMMDD) de un CURP o RFC de Persona Física.
+    """
+    for cand in (str(curp).strip().upper(), str(rfc).strip().upper()):
+        m = re.match(r"^[A-ZÑ&]{4}(\d{2})(\d{2})(\d{2})", cand)
+        if m:
+            yy, mm, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            if 1 <= mm <= 12 and 1 <= dd <= 31:
+                anio = 1900 + yy if yy >= 25 else 2000 + yy
+                return f"{dd:02d}/{mm:02d}/{anio:04d}"
+    return ""
 
 
 def extraer_datos_memoria(file_bytes, is_pdf=True):
