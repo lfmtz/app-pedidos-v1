@@ -106,10 +106,13 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
         "USO_CFDI": 47, "MET_PAGO": 48, "ANTICIPO": 49,
         "Fecha_nac": 50,  # Columna AX
         "Fecha PLD 1": 51,  # Columna AY
-        "TIPO_PERSONALIDAD": 52  # Columna AZ
+        "TIPO_PERSONALIDAD": 52,  # Columna AZ
+        "CONTACTO": 53,  # Columna BA
+        "¿VA A DEDUCIR?": 54,  # Columna BB
+        "LEAPMOTOR": 55  # Columna BC
     }
 
-    fila_a_inyectar = [""] * 52
+    fila_a_inyectar = [""] * 55
     datos["ID_Seguimiento"] = id_seguimiento  # Corregido NameError
 
     for campo, valor in datos.items():
@@ -125,7 +128,7 @@ def guardar_pedido_y_actualizar_t2(datos, id_actualizar=None):
     # --- 3. GUARDADO EN HOJA DE DATOS ---
     try:
         if id_actualizar and fila_destino <= len(todas_las_filas):
-            rango_update = f"A{fila_destino}:AZ{fila_destino}"
+            rango_update = f"A{fila_destino}:BC{fila_destino}"
             sheet_pedido.update(rango_update, [fila_a_inyectar])
         else:
             sheet_pedido.append_row(fila_a_inyectar)
@@ -204,7 +207,8 @@ def obtener_datos_pedido_por_id(id_seguimiento):
             "CONTADO", "BANCARIO", "KUNA", "OTRO", "SICREA", "GARANTIA EXTENDIDA", "SEGURO",
             "KIT DE SEGURIDAD", "GESTORIA", "PLACAS / TENENCIA", "VERIFICACION", "ACCESORIOS",
             "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS", "GERENTE DE VENTAS",
-            "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD"
+            "USO_CFDI", "MET_PAGO", "ANTICIPO", "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD",
+            "CONTACTO", "¿VA A DEDUCIR?", "LEAPMOTOR"
         ]
 
         # Creamos el diccionario emparejando encabezado con valor

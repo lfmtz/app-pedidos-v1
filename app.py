@@ -405,7 +405,7 @@ with tab2:
 
         # --- Detalles de CFDI y depositos ---
         with st.expander("Datos de Facturación y Pago", expanded=True):
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 uso_cfdi = st.text_input(
                     "Uso de CFDI:", value=datos.get("USO_CFDI", ""))
@@ -415,18 +415,42 @@ with tab2:
             with col3:
                 anticipo = st.text_input(
                     "Anticipo:", value=datos.get("ANTICIPO", ""))
-            with col4:
-                opciones_pers = ["PERSONA FÍSICA", "PERSONA MORAL"]
+
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                opciones_pers = ["PFAE", "PF", "PFAE RESICO", "MORAL"]
                 pers_guardada = str(datos.get("TIPO_PERSONALIDAD", "")).strip().upper()
                 rfc_limpio = str(datos.get("RFC:", "")).strip()
                 if pers_guardada in opciones_pers:
                     idx_pers = opciones_pers.index(pers_guardada)
-                elif len(rfc_limpio) == 12:
-                    idx_pers = 1
+                elif pers_guardada == "PERSONA MORAL" or len(rfc_limpio) == 12:
+                    idx_pers = opciones_pers.index("MORAL")
+                elif pers_guardada in ("PERSONA FÍSICA", "PERSONA FISICA"):
+                    idx_pers = opciones_pers.index("PF")
                 else:
-                    idx_pers = 0
+                    idx_pers = opciones_pers.index("PF")
                 tipo_personalidad_val = st.selectbox(
                     "Tipo de Personalidad:", opciones_pers, index=idx_pers)
+            with col_f2:
+                contacto_val = st.text_input(
+                    "Contacto:", value=datos.get("CONTACTO", ""))
+            with col_f3:
+                opciones_deducir = ["SI", "NO"]
+                deducir_guardado = str(datos.get("¿VA A DEDUCIR?", "")).strip().upper()
+                if deducir_guardado in ("SÍ", "SI"):
+                    idx_deducir = 0
+                elif deducir_guardado == "NO":
+                    idx_deducir = 1
+                else:
+                    idx_deducir = 0
+                va_a_deducir_val = st.selectbox(
+                    "¿Va a deducir?:", opciones_deducir, index=idx_deducir)
+
+            leapmotor_check = st.checkbox(
+                "⚡ ¿Es unidad Leapmotor? (Igualar Teléfono y E-mail en sección LEAP MOTOR · DATOS APP)",
+                value=(str(datos.get("LEAPMOTOR", "")).strip().upper() in ("SI", "SÍ"))
+            )
+            leapmotor_val = "SI" if leapmotor_check else "NO"
 
         # --- SECCIÓN 3: ADICIONALES Y TOMA ---
         st.subheader("🛠️ Adicionales y Toma de Unidad")
@@ -479,7 +503,8 @@ with tab2:
                 "TOMA DE AUTO", "PRECIO DE TOMA", "GERENTE DE AUTOS SEMINUEVOS",
                 "GERENTE DE VENTAS", "Identificaciones", "USO_CFDI", "MET_PAGO",
                 "ANTICIPO", "Fecha de RPP", "Fecha del Poder", "Telefono Emp",
-                "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD"
+                "Fecha_nac", "Fecha PLD 1", "TIPO_PERSONALIDAD", "CONTACTO",
+                "¿VA A DEDUCIR?", "LEAPMOTOR"
             ]
 
             if opcion_pedido == "Opción C: Captura Manual (Sin Constancia)":
@@ -593,7 +618,10 @@ with tab2:
                         "Telefono Emp": tel_emp,
                         "Fecha_nac": fecha_nac,
                         "Fecha PLD 1": fecha_pld1,
-                        "TIPO_PERSONALIDAD": tipo_personalidad_val
+                        "TIPO_PERSONALIDAD": tipo_personalidad_val,
+                        "CONTACTO": contacto_val,
+                        "¿VA A DEDUCIR?": va_a_deducir_val,
+                        "LEAPMOTOR": leapmotor_val
                     })
                     # Si es modo Actualizar, forzamos el ID para que siempre edite
                     if btn_actualizar and id_activo:
