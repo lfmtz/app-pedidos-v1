@@ -1,5 +1,6 @@
 credenciales.json
 .streamlit/
+.env
 __pycache__/
 
 # 1. Primero permitimos que Git entre a la carpeta

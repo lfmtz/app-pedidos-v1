@@ -22,6 +22,11 @@ from modulos.ocr_processor import extraer_datos_memoria
 from modulos.pdf_generator import generar_pdf_aviso_privacidad
 from modulos.pdf_generator import generar_pdf_stellantis
 from modulos.auth_guard import verificar_acceso
+from modulos.cotizacion_extractor import (
+    extraer_datos_cotizacion,
+    aplicar_cotizacion_a_datos,
+    CAMPOS_PERMITIDOS_COTIZACION
+)
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestor de Créditos Nissan", layout="wide")
@@ -175,13 +180,18 @@ with tab2:
                                    type=["pdf", "jpg", "png", "jpeg"])
 
         if archivo is not None:
-            # Solo procesamos si la memoria está vacía o si pedimos Reprocesar
-            # Usamos una marca para saber si el archivo ya se procesó
-            if not datos or st.sidebar.button("🔄 Reprocesar"):
+            csf_id = f"{archivo.name}_{archivo.size}"
+            if not datos or st.session_state.get("ultimo_csf_id") != csf_id or st.sidebar.button("🔄 Reprocesar"):
                 with st.spinner("Procesando documento..."):
                     bytes_data = archivo.read()
-                    st.session_state.datos_extraidos = extraer_datos_memoria(
+                    datos_csf = extraer_datos_memoria(
                         bytes_data, archivo.name.lower().endswith('.pdf'))
+                    datos_previos_cot = {
+                        k: v for k, v in st.session_state.get("datos_extraidos", {}).items()
+                        if k in CAMPOS_PERMITIDOS_COTIZACION
+                    }
+                    st.session_state.datos_extraidos = {**datos_csf, **datos_previos_cot}
+                    st.session_state.ultimo_csf_id = csf_id
                     st.rerun()
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
@@ -375,25 +385,78 @@ with tab2:
 
         # --- SECCIÓN 2: UNIDAD Y VENTA ---
         st.subheader("🚗 Detalles de la Unidad y Financiamiento")
+
+        # ── CARGADOR DE COTIZACIÓN DE CRÉDITO (FINANCIERA PROPIA) ──────────────
+        with st.expander("📄 Autollenar Unidad y Crédito desde Cotización PDF (Financiera Propia)", expanded=True):
+            st.caption(
+                "Sube la cotización en PDF (Stellantis Financial / Inbursa, CrediNissan, etc.) para "
+                "llenar automáticamente los campos de la unidad y financiamiento. "
+                "Los datos de la Constancia Fiscal no se modifican y el campo Seguro se mantiene vacío."
+            )
+            archivo_cot = st.file_uploader(
+                "Subir Cotización de Crédito (PDF)",
+                type=["pdf"],
+                key="uploader_cotizacion_credito"
+            )
+            if archivo_cot is not None:
+                cot_id = f"{archivo_cot.name}_{archivo_cot.size}"
+                if st.session_state.get("ultima_cotizacion_id") != cot_id:
+                    with st.spinner("Extrayendo datos de la cotización con PyMuPDF..."):
+                        bytes_cot = archivo_cot.read()
+                        res_cot = extraer_datos_cotizacion(bytes_cot)
+                        st.session_state.datos_extraidos = aplicar_cotizacion_a_datos(
+                            st.session_state.get("datos_extraidos", {}),
+                            res_cot
+                        )
+                        st.session_state.ultima_cotizacion_id = cot_id
+                        st.session_state.ultima_cotizacion_meta = res_cot.get("_meta", {})
+                        st.session_state.cot_version = st.session_state.get("cot_version", 0) + 1
+                        st.rerun()
+
+                meta_cot = st.session_state.get("ultima_cotizacion_meta", {})
+                datos = st.session_state.get("datos_extraidos", {})
+                st.success(
+                    f"✅ **Cotización cargada ({meta_cot.get('metodo_extraccion', 'PyMuPDF')})** — "
+                    f"Folio: `{meta_cot.get('folio_cotizacion') or 'N/A'}` | "
+                    f"Plan: `{meta_cot.get('plan') or 'N/A'}` | "
+                    f"Tasa: `{meta_cot.get('tasa_interes') or 'N/A'}`  \n"
+                    f"*(Todos los campos son 100% editables por si deseas ajustar algún dato antes de confirmar)*"
+                )
+                fin_veh = float(meta_cot.get("monto_financiado_vehiculo", 0.0) or 0.0)
+                fin_tot = float(meta_cot.get("monto_financiado_total", 0.0) or 0.0)
+                if fin_veh > 0 and fin_tot > 0 and abs(fin_veh - fin_tot) > 0.01:
+                    col_mf1, col_mf2 = st.columns(2)
+                    with col_mf1:
+                        if st.button(f"💳 Usar Total Financiado (${fin_tot:,.2f})", use_container_width=True):
+                            st.session_state.datos_extraidos["Monto a Financiar"] = fin_tot
+                            st.session_state.cot_version = st.session_state.get("cot_version", 0) + 1
+                            st.rerun()
+                    with col_mf2:
+                        if st.button(f"🚗 Usar Financiado Solo Vehículo (${fin_veh:,.2f})", use_container_width=True):
+                            st.session_state.datos_extraidos["Monto a Financiar"] = fin_veh
+                            st.session_state.cot_version = st.session_state.get("cot_version", 0) + 1
+                            st.rerun()
+
+        cot_v = st.session_state.get("cot_version", 0)
         col_a1, col_a2, col_a3, col_a4 = st.columns(4)
         with col_a1:
-            auto_val = st.text_input("Modelo:", value=datos.get("Auto", ""))
-            año_val = st.text_input("Año:", value=datos.get("AÑO", ""))
+            auto_val = st.text_input("Modelo:", value=datos.get("Auto", ""), key=f"auto_val_{cot_v}")
+            año_val = st.text_input("Año:", value=datos.get("AÑO", ""), key=f"anio_val_{cot_v}")
             precio_val = st.number_input("Precio Lista:", value=float(datos.get(
-                "Precio Auto", 0.0)) if datos.get("Precio Auto") else 0.0, step=1000.0)
+                "Precio Auto", 0.0)) if datos.get("Precio Auto") else 0.0, step=1000.0, key=f"precio_val_{cot_v}")
         with col_a2:
             color_val = st.text_input("Color:", value=datos.get("Color", ""))
             pago_ini_val = st.number_input("Enganche:", value=float(datos.get(
-                "Pago Inicial", 0.0)) if datos.get("Pago Inicial") else 0.0, step=1000.0)
+                "Pago Inicial", 0.0)) if datos.get("Pago Inicial") else 0.0, step=1000.0, key=f"enganche_val_{cot_v}")
             monto_fin_val = st.number_input("Monto a Financiar:", value=float(datos.get(
-                "Monto a Financiar", 0.0)) if datos.get("Monto a Financiar") else 0.0, step=1000.0)
+                "Monto a Financiar", 0.0)) if datos.get("Monto a Financiar") else 0.0, step=1000.0, key=f"monto_fin_val_{cot_v}")
         with col_a3:
             plazos = ["12", "18", "24", "36", "48", "60", "72", "CONTADO"]
             p_idx = plazos.index(str(datos.get("Plazo"))) if str(
                 datos.get("Plazo")) in plazos else 0
-            plazo_val = st.selectbox("Plazo:", plazos, index=p_idx)
+            plazo_val = st.selectbox("Plazo:", plazos, index=p_idx, key=f"plazo_val_{cot_v}")
             mensualidad_val = st.number_input("Mensualidad:", value=float(datos.get(
-                "Mensualidades", 0.0)) if datos.get("Mensualidades") else 0.0, step=100.0)
+                "Mensualidades", 0.0)) if datos.get("Mensualidades") else 0.0, step=100.0, key=f"mensualidad_val_{cot_v}")
         with col_a4:
             fin_opciones = ["FINANCIERA PROPIA", "CONTADO",
                             "BANCARIO", "KUNA", "SICREA", "OTRO"]
@@ -401,7 +464,7 @@ with tab2:
             seleccionados = [
                 opt for opt in fin_opciones if datos.get(opt) == "SÍ"]
             tipo_fin = st.multiselect(
-                "Canal de Venta (dejar vacío = NINGUNO):", fin_opciones, default=seleccionados)
+                "Canal de Venta (dejar vacío = NINGUNO):", fin_opciones, default=seleccionados, key=f"tipo_fin_val_{cot_v}")
 
         # --- Detalles de CFDI y depositos ---
         with st.expander("Datos de Facturación y Pago", expanded=True):
@@ -414,7 +477,7 @@ with tab2:
                     "Método de Pago:", value=datos.get("MET_PAGO", ""))
             with col3:
                 anticipo = st.text_input(
-                    "Anticipo:", value=datos.get("ANTICIPO", ""))
+                    "Anticipo:", value=datos.get("ANTICIPO", ""), key=f"anticipo_val_{cot_v}")
 
             col_f1, col_f2, col_f3 = st.columns(3)
             with col_f1:
@@ -706,6 +769,10 @@ with tab2:
         st.write("---")  # Una línea divisora para separar del botón de guardado
         if st.button("♻️ Limpiar Formulario / Nuevo Registro", use_container_width=True):
             st.session_state.datos_extraidos = {}
+            st.session_state.pop("ultimo_csf_id", None)
+            st.session_state.pop("ultima_cotizacion_id", None)
+            st.session_state.pop("ultima_cotizacion_meta", None)
+            st.session_state.cot_version = st.session_state.get("cot_version", 0) + 1
             st.rerun()
 
         st.divider()
