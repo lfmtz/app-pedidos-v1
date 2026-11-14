@@ -87,8 +87,8 @@ def probar_extraccion_pdf(ruta_pdf: str):
     assert abs(datos_cot["Precio Auto"] - 537500.00) < 0.01, (
         f"Error en Precio Auto: {datos_cot['Precio Auto']}"
     )
-    assert abs(datos_cot["Pago Inicial"] - 430000.00) < 0.01, (
-        f"Error en Pago Inicial (Enganche): {datos_cot['Pago Inicial']}"
+    assert abs(datos_cot["Pago Inicial"] - 459355.61) < 0.01, (
+        f"Error en Pago Inicial (Enganche desde fila Total): {datos_cot['Pago Inicial']}"
     )
     assert abs(datos_cot["Monto a Financiar"] - 107942.56) < 0.01, (
         f"Error en Monto a Financiar: {datos_cot['Monto a Financiar']}"

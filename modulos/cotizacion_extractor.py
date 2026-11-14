@@ -317,6 +317,8 @@ def extraer_cotizacion_local(texto_estructurado: str) -> dict:
 
         # 7. FILA TOTAL DE TABLA CONDICIONES
         # Ej: "Total: $459,355.61 $107,942.56"
+        # Si no aparece "Anticipo sin bono del descuento:", el Enganche (Pago Inicial) y ANTICIPO
+        # toman la cantidad de la fila "Total:" (columna ANTICIPO).
         if re.match(r"^TOTAL:\s*\$", linea_upper):
             montos_tot = re.findall(r"\$\s*([\d,]+\.\d{2})", linea)
             if len(montos_tot) == 2:
@@ -326,6 +328,7 @@ def extraer_cotizacion_local(texto_estructurado: str) -> dict:
                 resultado["_meta"]["monto_financiado_total"] = fin_tot
                 resultado["Monto a Financiar"] = fin_tot
                 if resultado["_meta"]["anticipo_sin_bono"] == 0.0:
+                    resultado["Pago Inicial"] = ant_tot
                     resultado["ANTICIPO"] = f"{ant_tot:,.2f}"
 
         # 7b. BONO DEL DESCUENTO (cuando aplica bono en la cotización)
