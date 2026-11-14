@@ -159,13 +159,15 @@ with tab2:
                              "Opción B: Cliente Existente (Inyectar ID en T2)",
                              "Opción C: Captura Manual (Sin Constancia)"])
 
-    # 3. LÓGICA DE AUTO-LIMPIEZA (Solo al cambiar de B a A)
+    # 3. LÓGICA DE AUTO-LIMPIEZA (Al cambiar de B o C hacia A)
     if "opcion_anterior" not in st.session_state:
         st.session_state.opcion_anterior = opcion_pedido
 
-    if st.session_state.opcion_anterior == "Opción B: Cliente Existente (Inyectar ID en T2)" and \
+    if st.session_state.opcion_anterior != opcion_pedido and \
        opcion_pedido == "Opción A: Nuevo Cliente (Subir Constancia)":
         st.session_state.datos_extraidos = {}
+        st.session_state.pop("ultimo_csf_id", None)
+        st.session_state.csf_version = st.session_state.get("csf_version", 0) + 1
         st.session_state.opcion_anterior = opcion_pedido
         st.rerun()
 
@@ -182,7 +184,7 @@ with tab2:
         if archivo is not None:
             csf_id = f"{archivo.name}_{archivo.size}"
             if not datos or st.session_state.get("ultimo_csf_id") != csf_id or st.sidebar.button("🔄 Reprocesar"):
-                with st.spinner("Procesando documento..."):
+                with st.spinner("Procesando documento (Texto nativo / QR SAT)..."):
                     bytes_data = archivo.read()
                     datos_csf = extraer_datos_memoria(
                         bytes_data, archivo.name.lower().endswith('.pdf'))
@@ -192,7 +194,20 @@ with tab2:
                     }
                     st.session_state.datos_extraidos = {**datos_csf, **datos_previos_cot}
                     st.session_state.ultimo_csf_id = csf_id
+                    st.session_state.csf_version = st.session_state.get("csf_version", 0) + 1
                     st.rerun()
+
+            datos = st.session_state.get("datos_extraidos", {})
+            rfc_cargado = datos.get("RFC:", "")
+            nom_cargado = f"{datos.get('Nombre (s):', '')} {datos.get('Primer Apellido:', '')} {datos.get('Segundo Apellido:', '')}".strip() or datos.get("Denominación/Razón Social:", "")
+            if rfc_cargado or nom_cargado:
+                st.success(
+                    f"✅ **Constancia cargada correctamente** — "
+                    f"👤 **{nom_cargado or 'N/A'}** | 🪪 **RFC:** `{rfc_cargado or 'N/A'}` | "
+                    f"📍 **C.P.:** `{datos.get('Código Postal:', 'N/A')}`"
+                )
+            else:
+                st.warning("⚠️ No se detectaron datos en el archivo subido. Verifica que la Constancia o su código QR sean legibles.")
 
     elif opcion_pedido == "Opción B: Cliente Existente (Inyectar ID en T2)":
         st.subheader("🔍 Gestión de Pedidos Existentes")
@@ -556,7 +571,13 @@ with tab2:
             )
 
         # --- SECCIÓN 5: REVISIÓN SAT ---
-        with st.expander("🏠 Revisar / Capturar Datos SAT (Dirección y Vialidad)", expanded=(opcion_pedido == "Opción C: Captura Manual (Sin Constancia)")):
+        csf_v = st.session_state.get("csf_version", 0)
+        mostrar_sat_expandido = (
+            opcion_pedido == "Opción C: Captura Manual (Sin Constancia)"
+            or bool(datos.get("RFC:"))
+            or bool(datos.get("Nombre (s):"))
+        )
+        with st.expander("🏠 Revisar / Capturar Datos SAT (Dirección y Vialidad)", expanded=mostrar_sat_expandido):
             datos_validados = {}
             EXCLUIR_SAT = fin_opciones + [
                 "ID_Seguimiento", "EMISION", "FOLIO", "OCUPACION", "Auto", "AÑO",
@@ -581,7 +602,10 @@ with tab2:
             for i, k in enumerate(llaves_sat):
                 with cols_sat[i % 2]:
                     datos_validados[k] = st.text_input(
-                        f"{k}", value=datos.get(k, ""))
+                        f"{k}",
+                        value=datos.get(k, ""),
+                        key=f"sat_{k}_{csf_v}_{datos.get('ID_Seguimiento', '')}"
+                    )
 
         # --- AQUÍ VA EL NUEVO FRAGMENTO: SELECCIÓN DE DESTINO ---
         st.divider()
@@ -773,6 +797,7 @@ with tab2:
             st.session_state.pop("ultima_cotizacion_id", None)
             st.session_state.pop("ultima_cotizacion_meta", None)
             st.session_state.cot_version = st.session_state.get("cot_version", 0) + 1
+            st.session_state.csf_version = st.session_state.get("csf_version", 0) + 1
             st.rerun()
 
         st.divider()
