@@ -517,3 +517,78 @@ def obtener_catalogo_ocupaciones(hoja_catalogo):
         import streamlit as st
         st.error(f"Error al cargar catálogo {hoja_catalogo}: {e}")
         return ["SELECCIONE UNA OPCIÓN"]
+
+
+def inyectar_solicitud_en_sol_credito(campos_sheets: dict) -> dict:
+    """
+    Inserta o actualiza un registro en SOL_CREDITO_ACTUAL_2026 a partir del diccionario
+    mapeado desde una Solicitud de Crédito Nissan.
+    Si el RFC ya existe, actualiza la fila conservando los campos existentes que no vengan en el PDF.
+    """
+    client = get_client()
+    sheet = client.open("SOL_CREDITO_ACTUAL_2026").sheet1
+    todas_las_filas = sheet.get_all_values()
+
+    if not todas_las_filas:
+        raise RuntimeError("La hoja SOL_CREDITO_ACTUAL_2026 no tiene cabeceros.")
+
+    cabeceros = todas_las_filas[0]
+    rfc_buscar = str(campos_sheets.get("RFC", "")).strip().upper()
+
+    # Localizar columna RFC
+    rfc_col_idx = -1
+    for idx, h in enumerate(cabeceros):
+        if h.strip().upper() == "RFC":
+            rfc_col_idx = idx
+            break
+
+    fila_existente_num = -1
+    valores_existentes = []
+    if rfc_buscar and rfc_col_idx != -1:
+        for row_idx in range(len(todas_las_filas) - 1, 0, -1):
+            fila = todas_las_filas[row_idx]
+            if rfc_col_idx < len(fila) and fila[rfc_col_idx].strip().upper() == rfc_buscar:
+                fila_existente_num = row_idx + 1  # 1-indexed en Google Sheets
+                valores_existentes = fila
+                break
+
+    # Construir mapa normalizado de campos_sheets
+    mapa_entrada = {k.strip().lower(): str(v).strip() for k, v in campos_sheets.items() if v is not None}
+
+    nueva_fila = []
+    for col_idx, header in enumerate(cabeceros):
+        h_norm = header.strip().lower()
+        val_nuevo = mapa_entrada.get(h_norm, "")
+        val_previo = valores_existentes[col_idx] if col_idx < len(valores_existentes) else ""
+        if val_nuevo != "":
+            nueva_fila.append(val_nuevo)
+        else:
+            nueva_fila.append(val_previo)
+
+    if fila_existente_num != -1:
+        ultima_col_letra = gspread.utils.rowcol_to_a1(fila_existente_num, len(cabeceros))
+        rango = f"A{fila_existente_num}:{ultima_col_letra}"
+        try:
+            sheet.update(values=[nueva_fila], range_name=rango, value_input_option="USER_ENTERED")
+        except TypeError:
+            sheet.update(rango, [nueva_fila], value_input_option="USER_ENTERED")
+        accion = "actualizado"
+        fila_final = fila_existente_num
+    else:
+        sheet.append_row(nueva_fila, value_input_option="USER_ENTERED")
+        accion = "insertado"
+        fila_final = len(todas_las_filas) + 1
+
+    try:
+        obtener_listado_sol_credito.clear()
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "accion": accion,
+        "fila": fila_final,
+        "rfc": rfc_buscar,
+        "nombre": f"{campos_sheets.get('Nombre(s) acreditado', '')} {campos_sheets.get('Apellido Paterno acreditado', '')} {campos_sheets.get('Apellido Materno acreditado', '')}".strip(),
+    }
+

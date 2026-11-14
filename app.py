@@ -15,13 +15,15 @@ from modulos.sheets_db import (
     actualizar_representante_en_pm_stellantis,
     obtener_catalogo_ocupaciones,
     eliminar_registro_por_id,
-    obtener_listado_sol_credito
+    obtener_listado_sol_credito,
+    inyectar_solicitud_en_sol_credito
 )
 from modulos.pdf_generator import generar_solicitud_pdf
 from modulos.ocr_processor import extraer_datos_memoria
 from modulos.pdf_generator import generar_pdf_aviso_privacidad
 from modulos.pdf_generator import generar_pdf_stellantis
 from modulos.auth_guard import verificar_acceso
+from modulos.nissan_solicitud_extractor import extraer_datos_solicitud_nissan
 from modulos.cotizacion_extractor import (
     extraer_datos_cotizacion,
     aplicar_cotizacion_a_datos,
@@ -131,6 +133,98 @@ with tab1:
             mime="application/pdf",
             use_container_width=True
         )
+
+    st.divider()
+    with st.expander("🔄 Migrar Solicitud de Crédito PDF (Credi Nissan ➔ Base Stellantis / Google Sheets)", expanded=False):
+        st.caption(
+            "Sube una Solicitud de Crédito Persona Física de Credi Nissan en PDF. "
+            "El sistema extraerá todos los campos, los mapeará a la estructura de Stellantis (`SOL_CREDITO_ACTUAL_2026`) "
+            "y los insertará en Google Sheets para que puedas revisarla/completarla en la App de Edición o generar el PDF de Stellantis."
+        )
+        archivo_sol_nissan = st.file_uploader(
+            "Subir Solicitud de Crédito Credi Nissan (PDF)",
+            type=["pdf"],
+            key="uploader_migracion_nissan"
+        )
+        if archivo_sol_nissan is not None:
+            sol_nis_id = f"{archivo_sol_nissan.name}_{archivo_sol_nissan.size}"
+            if st.session_state.get("ultima_sol_nissan_id") != sol_nis_id:
+                with st.spinner("Extrayendo datos de la solicitud Credi Nissan..."):
+                    bytes_nis = archivo_sol_nissan.read()
+                    res_nis = extraer_datos_solicitud_nissan(bytes_nis)
+                    st.session_state.datos_migracion_nissan = res_nis.get("campos_sheets", {})
+                    st.session_state.faltantes_migracion_nissan = res_nis.get("faltantes_stellantis", [])
+                    st.session_state.ultima_sol_nissan_id = sol_nis_id
+                    st.rerun()
+
+            datos_nis = st.session_state.get("datos_migracion_nissan", {})
+            faltantes_nis = st.session_state.get("faltantes_migracion_nissan", [])
+
+            if datos_nis.get("RFC") or datos_nis.get("Nombre(s) acreditado"):
+                st.success(
+                    f"✅ **Solicitud Nissan leída correctamente** — "
+                    f"👤 **{datos_nis.get('Nombre(s) acreditado', '')} {datos_nis.get('Apellido Paterno acreditado', '')} {datos_nis.get('Apellido Materno acreditado', '')}** | "
+                    f"🪪 **RFC:** `{datos_nis.get('RFC', '')}` | **CURP:** `{datos_nis.get('CURP', '')}`"
+                )
+
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    st.markdown("**🏠 Domicilio Particular**")
+                    st.write(f"- **Calle:** {datos_nis.get('Calle (solo nombre)', '')} Ext: {datos_nis.get('Numero exterior', '')} Int: {datos_nis.get('Numero interior', '')}")
+                    st.write(f"- **Colonia:** {datos_nis.get('Colonia acreditado', '')} (C.P. {datos_nis.get('Código Postal', '')})")
+                    st.write(f"- **Alcaldía/Edo:** {datos_nis.get('Municipio ó Alcaldía', '')}, {datos_nis.get('Estado', '')}")
+                    st.write(f"- **Celular / Correo:** {datos_nis.get('Número Celular', '')} | {datos_nis.get('Correo Electrónico', '')}")
+                with col_m2:
+                    st.markdown("**💼 Empleo e Ingresos**")
+                    st.write(f"- **Empresa:** {datos_nis.get('Nombre de la Empresa ó Institución', '')}")
+                    st.write(f"- **Puesto / Giro:** {datos_nis.get('¿Qué puesto o actividad desempeñas en tu trabajo?', '')} / {datos_nis.get('¿A que se dedica la empresa donde laboras?', '')}")
+                    st.write(f"- **Ingresos / Antigüedad:** ${datos_nis.get('Ingresos netos mensuales', '')} ({datos_nis.get('Antigüedad en el empleo, negocio ó jubilado ó pensionado años', '')} años)")
+                    st.write(f"- **Cónyuge:** {datos_nis.get('Nombre(s) conyuge', '')} {datos_nis.get('Apellido Paterno conyuge', '')} {datos_nis.get('Apellido Materno conyuge', '')}")
+                with col_m3:
+                    st.markdown("**👥 Referencias Personales**")
+                    st.write(f"1. **{datos_nis.get('Nombre (solo nombre) referencia 1', '')}** ({datos_nis.get('Parentesco ref 1', '')}) — Tel: {datos_nis.get('Teléfono de la Referencia 1', '')}")
+                    st.write(f"2. **{datos_nis.get('Nombre (solo nombre) referencia 2', '')}** ({datos_nis.get('Parentesco ref 2', '')}) — Tel: {datos_nis.get('Teléfono de la Referencia 2', '')}")
+                    st.write(f"3. **{datos_nis.get('Nombre (solo nombre) referencia 3', '')}** ({datos_nis.get('Parentesco ref 3', '')}) — Tel: {datos_nis.get('Teléfono de la Referencia 3', '')}")
+
+                if faltantes_nis:
+                    st.info(
+                        "ℹ️ **Campos exclusivos de Stellantis que no vienen en Nissan** "
+                        "(puedes llenarlos aquí mismo o dejarlos en blanco para editarlos en la App de Edición):"
+                    )
+                    cf1, cf2, cf3, cf4 = st.columns(4)
+                    with cf1:
+                        comp_tel_nis = st.text_input("Compañía telefónica:", value=datos_nis.get("Compañia telefonica", ""), key=f"nis_comp_{sol_nis_id}")
+                    with cf2:
+                        oc_ref1_nis = st.text_input("Ocupación Ref 1:", value=datos_nis.get("Ocupacion de la referencia 1", ""), key=f"nis_oc1_{sol_nis_id}")
+                    with cf3:
+                        oc_ref2_nis = st.text_input("Ocupación Ref 2:", value=datos_nis.get("Ocupacion de la referencia 2", ""), key=f"nis_oc2_{sol_nis_id}")
+                    with cf4:
+                        oc_ref3_nis = st.text_input("Ocupación Ref 3:", value=datos_nis.get("Ocupacion de la referencia 3", ""), key=f"nis_oc3_{sol_nis_id}")
+                else:
+                    comp_tel_nis, oc_ref1_nis, oc_ref2_nis, oc_ref3_nis = "", "", "", ""
+
+                if st.button("🚀 Inyectar en Google Sheets (SOL_CREDITO_ACTUAL_2026)", type="primary", use_container_width=True):
+                    with st.spinner("Guardando solicitud en SOL_CREDITO_ACTUAL_2026..."):
+                        payload_inyectar = dict(datos_nis)
+                        if comp_tel_nis.strip():
+                            payload_inyectar["Compañia telefonica"] = comp_tel_nis.strip().upper()
+                        if oc_ref1_nis.strip():
+                            payload_inyectar["Ocupacion de la referencia 1"] = oc_ref1_nis.strip().upper()
+                        if oc_ref2_nis.strip():
+                            payload_inyectar["Ocupacion de la referencia 2"] = oc_ref2_nis.strip().upper()
+                        if oc_ref3_nis.strip():
+                            payload_inyectar["Ocupacion de la referencia 3"] = oc_ref3_nis.strip().upper()
+
+                        res_iny = inyectar_solicitud_en_sol_credito(payload_inyectar)
+                        if res_iny.get("ok"):
+                            st.success(
+                                f"🎉 **¡Solicitud {res_iny['accion']} con éxito en la fila #{res_iny['fila']}!**\n\n"
+                                f"- **Cliente:** {res_iny['nombre']} (`{res_iny['rfc']}`)\n"
+                                f"- Ya puedes verla y editarla en tu **App de Edición de Stellantis**, o seleccionarla arriba para descargar la **Solicitud PDF de Stellantis**."
+                            )
+                            st.balloons()
+            else:
+                st.warning("⚠️ No se detectaron campos de formulario en este PDF.")
 
 # --- TAB 2: MÓDULO DE PEDIDO Y CONSTANCIA ---
 with tab2:
