@@ -238,6 +238,8 @@ def extraer_cotizacion_local(texto_estructurado: str) -> dict:
             "monto_financiado_total": 0.0,
             "anticipo_vehiculo": 0.0,
             "anticipo_total": 0.0,
+            "bono_descuento": 0.0,
+            "anticipo_sin_bono": 0.0,
             "metodo_extraccion": "PyMuPDF Local (0 Tokens)",
         }
     }
@@ -323,7 +325,26 @@ def extraer_cotizacion_local(texto_estructurado: str) -> dict:
                 resultado["_meta"]["anticipo_total"] = ant_tot
                 resultado["_meta"]["monto_financiado_total"] = fin_tot
                 resultado["Monto a Financiar"] = fin_tot
-                resultado["ANTICIPO"] = f"{ant_tot:,.2f}"
+                if resultado["_meta"]["anticipo_sin_bono"] == 0.0:
+                    resultado["ANTICIPO"] = f"{ant_tot:,.2f}"
+
+        # 7b. BONO DEL DESCUENTO (cuando aplica bono en la cotización)
+        # Ej: "Bono del Descuento: $-75,000.00"
+        if ("BONO DEL DESCUENTO" in linea_upper or "BONO DE DESCUENTO" in linea_upper) and "ANTICIPO SIN BONO" not in linea_upper:
+            m_bono = re.search(r"-?\s*([\d,]+\.\d{2})", linea)
+            if m_bono:
+                resultado["_meta"]["bono_descuento"] = _limpiar_monto(m_bono.group(1))
+
+        # 7c. ANTICIPO SIN BONO DEL DESCUENTO (Enganche real cuando se ofrece bono)
+        # Ej: "Anticipo sin bono del descuento: $103,680.67"
+        if "ANTICIPO SIN BONO" in linea_upper:
+            m_ant_sb = re.search(r"\$?\s*([\d,]+\.\d{2})", linea)
+            if m_ant_sb:
+                ant_sin_bono = _limpiar_monto(m_ant_sb.group(1))
+                if ant_sin_bono > 0:
+                    resultado["_meta"]["anticipo_sin_bono"] = ant_sin_bono
+                    resultado["Pago Inicial"] = ant_sin_bono
+                    resultado["ANTICIPO"] = f"{ant_sin_bono:,.2f}"
 
         # 8. PLAZO
         if linea_upper.startswith("PLAZO:"):
@@ -337,11 +358,12 @@ def extraer_cotizacion_local(texto_estructurado: str) -> dict:
 
         # 10. RESUMEN DE MENSUALIDAD
         # Ej: "12 Pagos Mensuales c/u de: $9,835.66 (Pagos Vencidos)."
+        # Ej: "60 Pagos Mensuales c/u de 8,814.92 (no incluye seguro)."
         if "PAGOS MENSUALES" in linea_upper and resultado["Mensualidades"] == 0.0:
             m_plazo_res = re.search(r"(\d+)\s+PAGOS\s+MENSUALES", linea_upper)
             if m_plazo_res:
                 resultado["Plazo"] = _normalizar_plazo(m_plazo_res.group(1))
-            m_mens = re.search(r"\$\s*([\d,]+\.\d{2})", linea)
+            m_mens = re.search(r"(?:DE:?|\$)\s*\$?\s*([\d,]+\.\d{2})", linea_upper)
             if m_mens:
                 resultado["Mensualidades"] = _limpiar_monto(m_mens.group(1))
 

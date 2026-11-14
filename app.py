@@ -2,8 +2,10 @@ import importlib
 import streamlit as st
 import modulos.sheets_db as _sheets_db_mod
 import modulos.ocr_processor as _ocr_processor_mod
+import modulos.cotizacion_extractor as _cotizacion_extractor_mod
 importlib.reload(_sheets_db_mod)
 importlib.reload(_ocr_processor_mod)
+importlib.reload(_cotizacion_extractor_mod)
 
 from modulos.sheets_db import (
     buscar_cliente_por_rfc,
@@ -530,11 +532,17 @@ with tab2:
 
                 meta_cot = st.session_state.get("ultima_cotizacion_meta", {})
                 datos = st.session_state.get("datos_extraidos", {})
+                ant_sb_meta = float(meta_cot.get("anticipo_sin_bono", 0.0) or 0.0)
+                bono_meta = float(meta_cot.get("bono_descuento", 0.0) or 0.0)
+                nota_bono = (
+                    f" | 🎁 **Anticipo sin bono aplicado como Enganche:** `${ant_sb_meta:,.2f}` (Bono: `-${bono_meta:,.2f}`)"
+                    if ant_sb_meta > 0 else ""
+                )
                 st.success(
                     f"✅ **Cotización cargada ({meta_cot.get('metodo_extraccion', 'PyMuPDF')})** — "
                     f"Folio: `{meta_cot.get('folio_cotizacion') or 'N/A'}` | "
                     f"Plan: `{meta_cot.get('plan') or 'N/A'}` | "
-                    f"Tasa: `{meta_cot.get('tasa_interes') or 'N/A'}`  \n"
+                    f"Tasa: `{meta_cot.get('tasa_interes') or 'N/A'}`{nota_bono}  \n"
                     f"*(Todos los campos son 100% editables por si deseas ajustar algún dato antes de confirmar)*"
                 )
                 fin_veh = float(meta_cot.get("monto_financiado_vehiculo", 0.0) or 0.0)
