@@ -1,4 +1,10 @@
+import importlib
 import streamlit as st
+import modulos.sheets_db as _sheets_db_mod
+import modulos.ocr_processor as _ocr_processor_mod
+importlib.reload(_sheets_db_mod)
+importlib.reload(_ocr_processor_mod)
+
 from modulos.sheets_db import (
     buscar_cliente_por_rfc,
     guardar_pedido_y_actualizar_t2,
