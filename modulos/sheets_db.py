@@ -524,9 +524,11 @@ def inyectar_solicitud_en_sol_credito(campos_sheets: dict) -> dict:
     Inserta o actualiza un registro en SOL_CREDITO_ACTUAL_2026 a partir del diccionario
     mapeado desde una Solicitud de Crédito Nissan.
     Si el RFC ya existe, actualiza la fila conservando los campos existentes que no vengan en el PDF.
+    Además expande automáticamente la Tabla de Google Sheets ('Form_Responses') para incluir la nueva fila.
     """
     client = get_client()
-    sheet = client.open("SOL_CREDITO_ACTUAL_2026").sheet1
+    doc_sol = client.open("SOL_CREDITO_ACTUAL_2026")
+    sheet = doc_sol.sheet1
     todas_las_filas = sheet.get_all_values()
 
     if not todas_las_filas:
@@ -578,6 +580,31 @@ def inyectar_solicitud_en_sol_credito(campos_sheets: dict) -> dict:
         sheet.append_row(nueva_fila, value_input_option="USER_ENTERED")
         accion = "insertado"
         fila_final = len(todas_las_filas) + 1
+
+    # Expandir automáticamente el rango de la Tabla de Google Sheets ('Form_Responses') para incluir la nueva fila
+    try:
+        meta = doc_sol.fetch_sheet_metadata()
+        for sh_meta in meta.get("sheets", []):
+            if sh_meta.get("properties", {}).get("sheetId") == sheet.id:
+                requests_batch = []
+                for tbl in sh_meta.get("tables", []):
+                    tbl_range = dict(tbl.get("range", {}))
+                    if tbl_range.get("endRowIndex", 0) < fila_final:
+                        tbl_range["endRowIndex"] = fila_final
+                        requests_batch.append({
+                            "updateTable": {
+                                "table": {
+                                    "tableId": tbl["tableId"],
+                                    "range": tbl_range
+                                },
+                                "fields": "range"
+                            }
+                        })
+                if requests_batch:
+                    doc_sol.batch_update({"requests": requests_batch})
+                break
+    except Exception:
+        pass
 
     try:
         obtener_listado_sol_credito.clear()
